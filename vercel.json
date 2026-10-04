@@ -1,0 +1,51 @@
+{
+  "version": 2,
+  "framework": null,
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.php": {
+      "runtime": "vercel-php@0.9.0",
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    {
+      "src": "/css/(.*)",
+      "dest": "/public/css/$1"
+    },
+    {
+      "src": "/images/(.*)",
+      "dest": "/public/images/$1"
+    },
+    {
+      "src": "/build/(.*)",
+      "dest": "/public/build/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/public/favicon.ico"
+    },
+    {
+      "src": "/robots.txt",
+      "dest": "/public/robots.txt"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.php"
+    }
+  ],
+  "env": {
+    "APP_NAME": "Learning Musashi",
+    "APP_ENV": "production",
+    "APP_DEBUG": "true",
+    "APP_KEY": "base64:KZI03qL48lP/EqiTvXHGNcIxg/gRIAxqn7DqgwTjVlE=",
+    "APP_URL": "https://learning-musashi.vercel.app",
+    "APP_STORAGE": "/tmp/storage",
+    "VIEW_COMPILED_PATH": "/tmp/storage/framework/views",
+    "CACHE_STORE": "array",
+    "SESSION_DRIVER": "cookie",
+    "LOG_CHANNEL": "stderr",
+    "DB_CONNECTION": "sqlite",
+    "DB_DATABASE": "/tmp/database.sqlite"
+  }
+}
