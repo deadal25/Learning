@@ -18,12 +18,8 @@ class ExerciseController extends Controller
         $user = Auth::user();
         $isTeacher = $user && $user->isAdmin() && !$user->isSuperAdmin();
 
-        if ($isTeacher) {
-            if ((int)$user->subject_id === 1) {
-                return redirect()->route('admin.grades.index');
-            } elseif ((int)$user->subject_id === 2) {
-                return redirect()->route('admin.japanese.tests.index');
-            }
+        if ($isTeacher && (int)$user->subject_id === 2) {
+            return redirect()->route('admin.japanese.tests.index');
         }
 
         $subjects = $isTeacher && $user->subject_id
@@ -66,10 +62,6 @@ class ExerciseController extends Controller
         $user = Auth::user();
         $isTeacher = $user && $user->isAdmin() && !$user->isSuperAdmin();
 
-        if ($isTeacher && (int)$user->subject_id !== 3) {
-            abort(403, 'Akses kelola bank soal hanya untuk Guru Matematika.');
-        }
-
         $subjects = $isTeacher && $user->subject_id
             ? Subject::where('id', $user->subject_id)->with('levels')->get()
             : Subject::with('levels')->get();
@@ -88,10 +80,6 @@ class ExerciseController extends Controller
     {
         $user = Auth::user();
         $isTeacher = $user && $user->isAdmin() && !$user->isSuperAdmin();
-
-        if ($isTeacher && (int)$user->subject_id !== 3) {
-            abort(403, 'Akses kelola bank soal hanya untuk Guru Matematika.');
-        }
 
         $validated = $request->validate([
             'level_id' => ['required', 'exists:levels,id'],
@@ -131,10 +119,6 @@ class ExerciseController extends Controller
         $user = Auth::user();
         $isTeacher = $user && $user->isAdmin() && !$user->isSuperAdmin();
 
-        if ($isTeacher && (int)$user->subject_id !== 3) {
-            abort(403, 'Akses kelola bank soal hanya untuk Guru Matematika.');
-        }
-
         if ($isTeacher && $user->subject_id) {
             abort_if($exercise->level->subject_id !== $user->subject_id, 403, 'Anda tidak berhak mengedit soal ini.');
             $subjects = Subject::where('id', $user->subject_id)->with('levels')->get();
@@ -149,10 +133,6 @@ class ExerciseController extends Controller
     {
         $user = Auth::user();
         $isTeacher = $user && $user->isAdmin() && !$user->isSuperAdmin();
-
-        if ($isTeacher && (int)$user->subject_id !== 3) {
-            abort(403, 'Akses kelola bank soal hanya untuk Guru Matematika.');
-        }
 
         if ($isTeacher && $user->subject_id) {
             abort_if($exercise->level->subject_id !== $user->subject_id, 403);
@@ -191,9 +171,6 @@ class ExerciseController extends Controller
     {
         $user = Auth::user();
         $isTeacher = $user && $user->isAdmin() && !$user->isSuperAdmin();
-        if ($isTeacher && (int)$user->subject_id !== 3) {
-            abort(403, 'Akses kelola bank soal hanya untuk Guru Matematika.');
-        }
         if ($isTeacher && $user->subject_id) {
             abort_if($exercise->level->subject_id !== $user->subject_id, 403);
         }

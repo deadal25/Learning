@@ -127,6 +127,16 @@ class ExercisePlayController extends Controller
                 ->with('error', 'Anda belum mengaktifkan mata pelajaran ini. Silakan masukkan Kode Kelas dari guru terlebih dahulu.');
         }
 
+        // Japanese students: redirect to the meeting test for this level
+        if ((int)$level->subject_id === 2) {
+            $jpTest = \App\Models\JapaneseTest::where('category', 'per_pertemuan')
+                ->where('start_meeting', $level->order)
+                ->first();
+            if ($jpTest) {
+                return redirect()->route('student.japanese.tests.show', $jpTest);
+            }
+        }
+
         // Check if previous meeting is completed for English student (Sequential progression rule)
         if ($level->subject_id == 1 && $level->order > 1) {
             $prevLevel = Level::where('subject_id', 1)->where('order', $level->order - 1)->first();

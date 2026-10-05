@@ -179,7 +179,33 @@ class SubjectLearnController extends Controller
 
         $presentationData = \App\Services\DocumentConverterService::ensureConverted($material);
 
-        return view('student.materials.view', compact('material', 'level', 'isLevelUnlocked', 'otherMaterials', 'presentationData'));
+        // Hubungkan latihan soal langsung dengan Pertemuan ($level->order) dari materi ini
+        $jpTest = null;
+        if ((int)$level->subject_id === 2) {
+            $jpTest = \App\Models\JapaneseTest::where('category', 'per_pertemuan')
+                ->where('start_meeting', $level->order)
+                ->first();
+        }
+
+        $exerciseUrl = $jpTest
+            ? route('student.japanese.tests.show', $jpTest)
+            : route('student.exercises.show', $level);
+
+        $exerciseCount = $level->exercises()->count();
+        if ($exerciseCount === 0 && $jpTest) {
+            $exerciseCount = $jpTest->questions()->count();
+        }
+
+        return view('student.materials.view', compact(
+            'material',
+            'level',
+            'isLevelUnlocked',
+            'otherMaterials',
+            'presentationData',
+            'exerciseUrl',
+            'exerciseCount',
+            'jpTest'
+        ));
     }
 
     public function downloadMaterial(Material $material): BinaryFileResponse|RedirectResponse

@@ -35,8 +35,8 @@
                     ⬇ Unduh File ({{ strtoupper($material->file_type ?? 'FILE') }})
                 </a>
             @endif
-            <a href="{{ route('student.exercises.show', $level) }}" class="btn btn-primary">
-                Kerjakan Soal Latihan &rarr;
+            <a href="{{ $exerciseUrl ?? route('student.exercises.show', $level) }}" class="btn btn-primary">
+                🎯 Latihan Soal {{ $level->name }} &rarr;
             </a>
         </div>
     </div>
@@ -340,11 +340,11 @@
         <div>
             <h3 style="font-size: 1.2rem; color: #1e1b4b; margin-bottom: 4px;">Sudah selesai mempelajari materi ini?</h3>
             <p style="font-size: 0.9rem; color: var(--text-muted); margin: 0; max-width: 600px;">
-                Uji pemahamanmu dengan menyelesaikan 10 butir soal latihan pada <strong>{{ $level->name }}</strong>. Capai 100 poin untuk membuka level berikutnya!
+                Uji pemahamanmu dengan menyelesaikan {{ $exerciseCount ? "{$exerciseCount} butir" : '10' }} soal latihan pada <strong>{{ $level->name }}</strong>. Selesaikan latihan untuk membuka materi pertemuan berikutnya!
             </p>
         </div>
-        <a href="{{ route('student.exercises.show', $level) }}" class="btn btn-primary btn-lg" style="font-weight: 700;">
-            Mulai Kerjakan 10 Soal Latihan &rarr;
+        <a href="{{ $exerciseUrl ?? route('student.exercises.show', $level) }}" class="btn btn-primary btn-lg" style="font-weight: 700;">
+            Mulai Kerjakan Soal {{ $level->name }} &rarr;
         </a>
     </div>
 </div>
