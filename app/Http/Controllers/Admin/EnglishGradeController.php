@@ -218,7 +218,8 @@ class EnglishGradeController extends Controller
             $downloadName = "Nilai_Bahasa_Inggris_{$cleanClass}_{$periodLabel}.xlsx";
 
             return response()->download($filePath, $downloadName)->deleteFileAfterSend(true);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('English grades export controller error: ' . $e->getMessage());
             return back()->with('error', 'Gagal mengekspor file nilai Excel: ' . $e->getMessage());
         }
     }

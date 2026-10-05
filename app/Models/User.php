@@ -114,9 +114,22 @@ class User extends Authenticatable
 
     public function getAssignedStudentIds(): array
     {
+        if ($this->isSuperAdmin()) {
+            return User::where('role', self::ROLE_STUDENT)->pluck('id')->toArray();
+        }
         $enrolledIds = $this->teacherEnrollments()->pluck('student_id')->toArray();
         $createdIds = User::where('created_by', $this->id)->pluck('id')->toArray();
-        return array_values(array_unique(array_merge($enrolledIds, $createdIds)));
+        $assigned = array_values(array_unique(array_merge($enrolledIds, $createdIds)));
+
+        // If teacher has no specific assigned records yet, fallback to all students of their subject
+        if (empty($assigned) && $this->subject_id) {
+            return User::where('role', self::ROLE_STUDENT)
+                ->where('subject_id', $this->subject_id)
+                ->pluck('id')
+                ->toArray();
+        }
+
+        return $assigned;
     }
 
     public function enrolledSubjects()
