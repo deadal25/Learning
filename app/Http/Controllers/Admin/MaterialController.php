@@ -150,10 +150,16 @@ class MaterialController extends Controller
         $fileName = null;
         $fileType = null;
 
+        $fileContent = null;
+
         if ($request->filled('preuploaded_file_path')) {
             $filePath = $request->input('preuploaded_file_path');
             $fileName = $request->input('preuploaded_file_name') ?: pathinfo($filePath, PATHINFO_BASENAME);
             $fileType = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) ?: 'pptx';
+            $diskPath = storage_path('app/public/' . $filePath);
+            if (file_exists($diskPath) && is_file($diskPath)) {
+                $fileContent = base64_encode(file_get_contents($diskPath));
+            }
         } elseif ($request->hasFile('slide_file')) {
             $file = $request->file('slide_file');
             $originalName = $file->getClientOriginalName();
@@ -167,6 +173,10 @@ class MaterialController extends Controller
             $filePath = $savedPath;
             $fileName = $originalName;
             $fileType = $ext;
+            $realPath = $file->getRealPath();
+            if ($realPath && file_exists($realPath)) {
+                $fileContent = base64_encode(file_get_contents($realPath));
+            }
         } elseif (!empty($validated['slide_url'])) {
             $fileType = 'slide_url';
         }
@@ -183,6 +193,7 @@ class MaterialController extends Controller
             'file_path' => $filePath,
             'file_name' => $fileName,
             'file_type' => $fileType,
+            'file_content' => $fileContent,
             'slide_url' => $validated['slide_url'] ?? null,
             'order' => $validated['order'],
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
@@ -388,12 +399,17 @@ class MaterialController extends Controller
         $fileName = $material->file_name;
         $fileType = $material->file_type;
         $fileChanged = false;
+        $newFileContent = null;
 
         if ($request->filled('preuploaded_file_path')) {
             $filePath = $request->input('preuploaded_file_path');
             $fileName = $request->input('preuploaded_file_name') ?: pathinfo($filePath, PATHINFO_BASENAME);
             $fileType = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) ?: 'pptx';
             $fileChanged = true;
+            $diskPath = storage_path('app/public/' . $filePath);
+            if (file_exists($diskPath) && is_file($diskPath)) {
+                $newFileContent = base64_encode(file_get_contents($diskPath));
+            }
         } elseif ($request->hasFile('slide_file')) {
             if ($material->file_path && Storage::disk('public')->exists($material->file_path)) {
                 Storage::disk('public')->delete($material->file_path);
@@ -412,11 +428,15 @@ class MaterialController extends Controller
             $fileName = $originalName;
             $fileType = $ext;
             $fileChanged = true;
+            $realPath = $file->getRealPath();
+            if ($realPath && file_exists($realPath)) {
+                $newFileContent = base64_encode(file_get_contents($realPath));
+            }
         }
 
         $targetClass = !empty($validated['class_name']) ? trim($validated['class_name']) : null;
 
-        $material->update([
+        $updateData = [
             'level_id' => $validated['level_id'],
             'class_name' => $targetClass,
             'title' => $validated['title'],
@@ -428,7 +448,13 @@ class MaterialController extends Controller
             'slide_url' => $validated['slide_url'] ?? null,
             'order' => $validated['order'],
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $material->is_active,
-        ]);
+        ];
+
+        if ($fileChanged) {
+            $updateData['file_content'] = $newFileContent;
+        }
+
+        $material->update($updateData);
 
         if ($fileChanged) {
             // Delete old slides

@@ -1,8 +1,9 @@
 <?php
 
-ini_set('display_errors', '1');
-ini_set('display_startup_errors', '1');
-error_reporting(E_ALL);
+// Nonaktifkan output warning/notice PHP langsung ke browser agar tidak merusak tampilan HTML di Vercel
+ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_WARNING);
 
 // Direktori storage dan cache sementara di /tmp
 $tmp = '/tmp';
@@ -39,11 +40,15 @@ $envDbUrl = getenv('DATABASE_URL_UNPOOLED')
     ?? ($_SERVER['POSTGRES_URL']
     ?? $defaultNeonUrl)))))));
 
+// Cek apakah database eksternal digunakan
+$hasExternalDb = !empty($envDbUrl)
+    || in_array(strtolower((string)(getenv('DB_CONNECTION') ?: ($_ENV['DB_CONNECTION'] ?? ''))), ['pgsql', 'postgres', 'mysql', 'mariadb']);
+
 // Set environment variables penting agar Laravel di Vercel menggunakan PostgreSQL secara persisten
 $envVars = [
     'APP_NAME' => 'Learning Musashi',
     'APP_ENV' => 'production',
-    'APP_DEBUG' => 'true',
+    'APP_DEBUG' => 'false',
     'APP_KEY' => 'base64:KZI03qL48lP/EqiTvXHGNcIxg/gRIAxqn7DqgwTjVlE=',
     'APP_URL' => 'https://learning-musashi.vercel.app',
     'APP_STORAGE' => $tmpStorage,
@@ -61,12 +66,27 @@ $envVars = [
     'DATABASE_URL' => $envDbUrl,
     'POSTGRES_URL' => $envDbUrl,
     'DATABASE_URL_UNPOOLED' => $envDbUrl,
+    'DB_HOST' => 'ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech',
     'PGHOST' => 'ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech',
-    'PGUSER' => 'neondb_owner',
+    'POSTGRES_HOST' => 'ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech',
+    'DB_PORT' => '5432',
+    'PGPORT' => '5432',
+    'POSTGRES_PORT' => '5432',
+    'DB_DATABASE' => 'neondb',
     'PGDATABASE' => 'neondb',
+    'POSTGRES_DATABASE' => 'neondb',
+    'DB_USERNAME' => 'neondb_owner',
+    'PGUSER' => 'neondb_owner',
+    'POSTGRES_USER' => 'neondb_owner',
+    'DB_PASSWORD' => 'npg_h3QAnBczWKd0',
     'PGPASSWORD' => 'npg_h3QAnBczWKd0',
-    'DB_DATABASE' => $tmp . '/database.sqlite',
+    'POSTGRES_PASSWORD' => 'npg_h3QAnBczWKd0',
 ];
+
+if (!$hasExternalDb) {
+    $envVars['DB_CONNECTION'] = 'sqlite';
+    $envVars['DB_DATABASE'] = $tmp . '/database.sqlite';
+}
 
 foreach ($envVars as $key => $val) {
     putenv("{$key}={$val}");

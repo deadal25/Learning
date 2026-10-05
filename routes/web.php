@@ -200,6 +200,26 @@ Route::match(['GET', 'HEAD', 'OPTIONS'], '/storage/{path}', function (string $pa
     } elseif (file_exists($pubPath = public_path('storage/' . $path)) && is_file($pubPath)) {
         // 3. Cek di public/storage
         $filePath = $pubPath;
+    } else {
+        // 4. Pulihkan dari Database Cloud jika berkas belum ada di direktori /tmp
+        try {
+            $cleanPath = ltrim($path, '/');
+            $mat = \App\Models\Material::where('file_path', $cleanPath)
+                ->orWhere('file_path', 'materials/' . $cleanPath)
+                ->orWhere('file_path', basename($cleanPath))
+                ->first();
+
+            if ($mat && !empty($mat->file_content)) {
+                $dir = dirname($tmpPath);
+                if (!is_dir($dir)) {
+                    @mkdir($dir, 0777, true);
+                }
+                file_put_contents($tmpPath, base64_decode($mat->file_content));
+                if (file_exists($tmpPath) && is_file($tmpPath)) {
+                    $filePath = $tmpPath;
+                }
+            }
+        } catch (\Throwable $e) {}
     }
 
     if (!$filePath) {

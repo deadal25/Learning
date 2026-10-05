@@ -21,6 +21,7 @@ class Material extends Model
         'file_path',
         'file_name',
         'file_type',
+        'file_content',
         'slide_url',
         'order',
         'is_active',
@@ -140,7 +141,11 @@ class Material extends Model
 
     public function hasFile(): bool
     {
-        return !empty($this->file_path) && Storage::disk('public')->exists($this->file_path);
+        return !empty($this->file_path) && (
+            !empty($this->file_content) ||
+            Storage::disk('public')->exists($this->file_path) ||
+            file_exists(base_path('storage/app/public/' . $this->file_path))
+        );
     }
 
     public function isCanva(): bool

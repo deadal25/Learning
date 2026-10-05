@@ -49,7 +49,7 @@
   "env": {
     "APP_NAME": "Learning Musashi",
     "APP_ENV": "production",
-    "APP_DEBUG": "true",
+    "APP_DEBUG": "false",
     "APP_KEY": "base64:KZI03qL48lP/EqiTvXHGNcIxg/gRIAxqn7DqgwTjVlE=",
     "APP_URL": "https://learning-musashi.vercel.app",
     "APP_STORAGE": "/tmp/storage",
@@ -66,9 +66,20 @@
     "DATABASE_URL": "postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
     "POSTGRES_URL": "postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
     "DATABASE_URL_UNPOOLED": "postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
+    "DB_HOST": "ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech",
     "PGHOST": "ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech",
-    "PGUSER": "neondb_owner",
+    "POSTGRES_HOST": "ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech",
+    "DB_PORT": "5432",
+    "PGPORT": "5432",
+    "POSTGRES_PORT": "5432",
+    "DB_DATABASE": "neondb",
     "PGDATABASE": "neondb",
-    "PGPASSWORD": "npg_h3QAnBczWKd0"
+    "POSTGRES_DATABASE": "neondb",
+    "DB_USERNAME": "neondb_owner",
+    "PGUSER": "neondb_owner",
+    "POSTGRES_USER": "neondb_owner",
+    "DB_PASSWORD": "npg_h3QAnBczWKd0",
+    "PGPASSWORD": "npg_h3QAnBczWKd0",
+    "POSTGRES_PASSWORD": "npg_h3QAnBczWKd0"
   }
 }

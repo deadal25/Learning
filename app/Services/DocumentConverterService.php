@@ -37,6 +37,29 @@ class DocumentConverterService
             return $pubPath;
         }
 
+        // 4. Pulihkan dari Database Cloud (kolom file_content di tabel materials)
+        try {
+            $cleanRel = ltrim($relativePath, '/');
+            $mat = Material::where('file_path', $cleanRel)
+                ->orWhere('file_path', 'materials/' . $cleanRel)
+                ->orWhere('file_path', basename($cleanRel))
+                ->first();
+
+            if ($mat && !empty($mat->file_content)) {
+                $targetPath = Storage::disk('public')->path($cleanRel);
+                $dir = dirname($targetPath);
+                if (!is_dir($dir)) {
+                    @mkdir($dir, 0777, true);
+                }
+                file_put_contents($targetPath, base64_decode($mat->file_content));
+                if (file_exists($targetPath) && is_file($targetPath)) {
+                    return $targetPath;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Gagal restore file materi dari DB: " . $e->getMessage());
+        }
+
         return null;
     }
 
