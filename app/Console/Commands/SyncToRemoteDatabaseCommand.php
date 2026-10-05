@@ -87,24 +87,30 @@ class SyncToRemoteDatabaseCommand extends Command
             $this->line("Menyinkronkan tabel <comment>{$table}</comment> ({$sourceCount} baris)...");
 
             $rows = $sourceConn->table($table)->get();
-            $chunks = $rows->chunk(100);
+            $chunks = $rows->chunk(200);
 
             foreach ($chunks as $chunk) {
                 $records = json_decode(json_encode($chunk), true);
-                foreach ($records as $record) {
-                    // Normalize boolean columns if migrating to PostgreSQL
-                    if ($target === 'pgsql') {
+                if ($target === 'pgsql') {
+                    foreach ($records as &$record) {
                         foreach ($record as $key => $val) {
                             if (in_array($key, ['is_active', 'is_unlocked', 'is_completed'])) {
                                 $record[$key] = (bool) $val;
                             }
                         }
                     }
+                    unset($record);
+                }
 
-                    $targetConn->table($table)->updateOrInsert(
-                        ['id' => $record['id']],
-                        $record
-                    );
+                try {
+                    $targetConn->table($table)->upsert($records, ['id']);
+                } catch (\Throwable $e) {
+                    foreach ($records as $record) {
+                        $targetConn->table($table)->updateOrInsert(
+                            ['id' => $record['id']],
+                            $record
+                        );
+                    }
                 }
             }
 

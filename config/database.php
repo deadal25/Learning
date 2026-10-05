@@ -3,13 +3,33 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
-$rawDbUrl = env('DATABASE_URL', env('POSTGRES_URL', env('DB_URL', '')));
+$rawDbUrl = env('DATABASE_URL_UNPOOLED', env('DATABASE_URL', env('POSTGRES_URL', env('DB_URL', ''))));
+if (!empty($rawDbUrl)) {
+    $rawDbUrl = str_replace('-pooler.', '.', $rawDbUrl);
+    $rawDbUrl = preg_replace('/([?&])(sslmode|options)=[^&]*(&|$)/', '$1', $rawDbUrl);
+    $rawDbUrl = rtrim($rawDbUrl, '?&');
+}
+
 $autoDefault = 'sqlite';
 if (!empty($rawDbUrl)) {
     if (str_starts_with($rawDbUrl, 'postgres://') || str_starts_with($rawDbUrl, 'postgresql://')) {
         $autoDefault = 'pgsql';
     } elseif (str_starts_with($rawDbUrl, 'mysql://')) {
         $autoDefault = 'mysql';
+    }
+}
+
+$pgHost = env('DB_HOST', env('POSTGRES_HOST', ''));
+if (empty($pgHost) && !empty($rawDbUrl)) {
+    $parsedUrl = parse_url($rawDbUrl);
+    $pgHost = $parsedUrl['host'] ?? '';
+}
+
+$pgSslMode = env('DB_SSLMODE', env('POSTGRES_SSLMODE', 'prefer'));
+if (str_contains($pgHost, 'neon.tech') && !str_contains($pgSslMode, 'endpoint=')) {
+    $ep = explode('.', $pgHost)[0];
+    if (!empty($ep)) {
+        $pgSslMode = rtrim($pgSslMode, ';') . ";options='endpoint={$ep}'";
     }
 }
 
@@ -96,7 +116,7 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
-            'url' => env('DATABASE_URL', env('POSTGRES_URL', env('DB_URL'))),
+            'url' => $rawDbUrl,
             'host' => env('DB_HOST', env('POSTGRES_HOST', '127.0.0.1')),
             'port' => env('DB_PORT', env('POSTGRES_PORT', '5432')),
             'database' => env('DB_DATABASE', env('POSTGRES_DATABASE', 'laravel')),
@@ -106,7 +126,8 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => env('DB_SCHEMA', 'public'),
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'sslmode' => $pgSslMode,
+            'options' => [],
         ],
 
         'sqlsrv' => [
