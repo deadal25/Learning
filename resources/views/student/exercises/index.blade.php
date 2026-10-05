@@ -107,7 +107,7 @@
 
                     @if(!$lvl->is_active)
                         <span class="badge" style="background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; font-weight: 800; font-size: 0.74rem;">
-                            🔒 Belum Diaktifkan Super Admin
+                            🔒 Belum Diaktifkan
                         </span>
                     @elseif($isCompleted)
                         <span class="badge" style="background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; font-weight: 800; font-size: 0.74rem;">
@@ -155,7 +155,7 @@
             <div class="card-footer" style="background: #ffffff; padding: 1rem 1.35rem; border-top: 1px solid var(--border-color);">
                 @if(!$lvl->is_active)
                     <button type="button" class="btn btn-secondary btn-sm" disabled style="width: 100%; text-align: center; opacity: 0.65; cursor: not-allowed; font-size: 0.78rem; background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0;">
-                        🔒 Belum Diaktifkan Super Admin
+                        🔒 Belum Diaktifkan
                     </button>
                 @elseif($isUnlocked)
                     <a href="{{ route('student.exercises.show', $lvl) }}" class="btn {{ $isCompleted ? 'btn-secondary' : 'btn-primary' }} btn-sm" style="width: 100%; text-align: center; font-weight: 800; display: block;">
