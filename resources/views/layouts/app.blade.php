@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Musashi - Platform Pembelajaran Bertingkat Berbasis Level dan Poin (Bahasa Inggris, Bahasa Jepang)">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     @php
         $defaultSiteTitle = 'Learning Musashi';
         if (auth()->check() && auth()->user()->isAdmin() && !auth()->user()->isSuperAdmin()) {
@@ -64,7 +65,7 @@
             <div style="display: flex; align-items: center; gap: 12px;">
                 <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" class="brand-logo" style="display: flex; align-items: center; gap: 10px; text-decoration: none;">
                     <img src="{{ asset('images/bola.png') }}" alt="Logo" style="height: 38px; width: auto; max-height: 38px; object-fit: contain; display: block;">
-                    <img src="{{ asset('images/gambar1.png') }}" alt="MUSASHI" style="height: 28px; width: auto; max-height: 28px; object-fit: contain; display: block;">
+                    <img src="{{ asset('images/Gambar1.png') }}" alt="MUSASHI" style="height: 28px; width: auto; max-height: 28px; object-fit: contain; display: block;">
                 </a>
                 @if(auth()->check() && auth()->user()->isStudent())
                     @php

@@ -19,7 +19,6 @@ $dirs = [
     $tmpStorage . '/framework/sessions',
     $tmpStorage . '/logs',
     $tmpStorage . '/app',
-    $tmpStorage . '/app/public',
 ];
 
 foreach ($dirs as $dir) {
@@ -47,6 +46,7 @@ $envVars = [
     'LOG_CHANNEL' => 'stderr',
     'DB_CONNECTION' => 'sqlite',
     'DB_DATABASE' => $tmp . '/database.sqlite',
+    'VERCEL' => '1',
 ];
 
 foreach ($envVars as $key => $val) {
@@ -55,6 +55,22 @@ foreach ($envVars as $key => $val) {
     }
     $_ENV[$key] = $_ENV[$key] ?? $val;
     $_SERVER[$key] = $_SERVER[$key] ?? $val;
+}
+
+// Paksa request di Vercel selalu dideteksi sebagai HTTPS agar asset/css/gambar tidak terblokir Mixed Content
+$_SERVER['HTTPS'] = 'on';
+$_SERVER['SERVER_PORT'] = '443';
+$_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+$_SERVER['HTTP_X_FORWARDED_PORT'] = '443';
+if (empty($_SERVER['HTTP_HOST'])) {
+    $_SERVER['HTTP_HOST'] = 'learning-musashi.vercel.app';
+}
+
+// Hubungkan storage/app/public jika ada berkas materi dari bundle
+$bundledStoragePublic = __DIR__ . '/../storage/app/public';
+$tmpStoragePublic = $tmpStorage . '/app/public';
+if (is_dir($bundledStoragePublic) && !file_exists($tmpStoragePublic)) {
+    @symlink($bundledStoragePublic, $tmpStoragePublic);
 }
 
 // Siapkan database SQLite dari bundle jika belum ada di /tmp

@@ -10,6 +10,18 @@
   },
   "routes": [
     {
+      "src": "/images/gambar1.png",
+      "dest": "/public/images/Gambar1.png"
+    },
+    {
+      "src": "/images/Gambar1.png",
+      "dest": "/public/images/Gambar1.png"
+    },
+    {
+      "src": "/images/bola.png",
+      "dest": "/public/images/bola.png"
+    },
+    {
       "src": "/css/(.*)",
       "dest": "/public/css/$1"
     },

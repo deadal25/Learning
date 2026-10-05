@@ -10,7 +10,7 @@
         <div style="padding: 2.25rem 2.25rem 1.5rem; text-align: center; background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%); border-bottom: 1px solid #f1f5f9;">
             <div style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 1rem;">
                 <img src="{{ asset('images/bola.png') }}" alt="Logo Bola" style="height: 50px; width: auto; object-fit: contain;">
-                <img src="{{ asset('images/gambar1.png') }}" alt="MUSASHI" style="height: 38px; width: auto; object-fit: contain;">
+                <img src="{{ asset('images/Gambar1.png') }}" alt="MUSASHI" style="height: 38px; width: auto; object-fit: contain;">
             </div>
             <h1 id="portalHeaderTitle" style="font-size: 1.55rem; font-weight: 800; color: #0f172a; margin-bottom: 0.35rem; font-family: var(--font-heading);">
                 Learning Musashi

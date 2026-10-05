@@ -9,7 +9,7 @@
             <div style="text-align: center; margin-bottom: 1.75rem;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 1rem;">
                     <img src="{{ asset('images/bola.png') }}" alt="Logo" style="height: 48px; width: auto; object-fit: contain;">
-                    <img src="{{ asset('images/gambar1.png') }}" alt="MUSASHI" style="height: 36px; width: auto; object-fit: contain;">
+                    <img src="{{ asset('images/Gambar1.png') }}" alt="MUSASHI" style="height: 36px; width: auto; object-fit: contain;">
                 </div>
                 <h1 style="font-size: 1.65rem; color: #0f172a; margin-bottom: 0.35rem; font-weight: 800;">
                     Pendaftaran Akun Siswa Baru
