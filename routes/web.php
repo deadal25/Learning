@@ -95,6 +95,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('materials', MaterialController::class);
         Route::get('materials/{material}/download', [MaterialController::class, 'download'])->name('materials.download');
         Route::get('materials/{material}/preview', [MaterialController::class, 'preview'])->name('materials.preview');
+        Route::post('materials/chunk-upload', [MaterialController::class, 'uploadChunk'])->name('materials.chunk-upload');
         Route::post('materials/{material}/reconvert', [MaterialController::class, 'reconvert'])->name('materials.reconvert');
         Route::post('materials/{material}/toggle-active', [MaterialController::class, 'toggleActive'])->name('materials.toggle-active');
 
@@ -178,7 +179,15 @@ Route::middleware('auth')->group(function () {
 });
 
 // Route penayangan berkas /storage (slide presentasi, berkas materi) di Vercel Serverless
-Route::get('/storage/{path}', function (string $path) {
+Route::match(['GET', 'HEAD', 'OPTIONS'], '/storage/{path}', function (string $path) {
+    if (request()->isMethod('OPTIONS')) {
+        return response('', 200, [
+            'Access-Control-Allow-Origin' => '*',
+            'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
+            'Access-Control-Allow-Headers' => '*',
+        ]);
+    }
+
     $filePath = null;
 
     // 1. Cek di penyimpanan sementara /tmp/storage/app/public (berkas baru yang diunggah)
@@ -197,14 +206,29 @@ Route::get('/storage/{path}', function (string $path) {
         abort(404, 'Berkas penyimpanan tidak ditemukan di server.');
     }
 
-    $headers = [];
-    if (str_ends_with(strtolower($path), '.pdf')) {
-        $headers = [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'inline',
-        ];
+    $lower = strtolower($path);
+    $headers = [
+        'Access-Control-Allow-Origin' => '*',
+        'Access-Control-Allow-Methods' => 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers' => '*',
+        'X-Frame-Options' => 'ALLOWALL',
+    ];
+
+    if (str_ends_with($lower, '.pdf')) {
+        $headers['Content-Type'] = 'application/pdf';
+        $headers['Content-Disposition'] = 'inline';
+    } elseif (str_ends_with($lower, '.pptx')) {
+        $headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        $headers['Content-Disposition'] = 'inline';
+    } elseif (str_ends_with($lower, '.ppt')) {
+        $headers['Content-Type'] = 'application/vnd.ms-powerpoint';
+        $headers['Content-Disposition'] = 'inline';
+    } elseif (str_ends_with($lower, '.docx')) {
+        $headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        $headers['Content-Disposition'] = 'inline';
     }
 
     return response()->file($filePath, $headers);
 })->where('path', '.*')->name('storage.file');
+
 

@@ -124,19 +124,6 @@ class SubjectLearnController extends Controller
             $query->forStudentClass($user->class_name);
         }
 
-        // ISOLASI GURU BAHASA INGGRIS: Siswa bahasa Inggris hanya melihat materi dari guru pengajarnya (atau materi umum)
-        if ($activeSubjectId === 1) {
-            $englishTeacherId = $user->enrollments()->where('subject_id', 1)->value('teacher_id')
-                ?? ($user->subject_id == 1 ? $user->created_by : null);
-
-            if ($englishTeacherId) {
-                $query->where(function ($q) use ($englishTeacherId) {
-                    $q->where('teacher_id', $englishTeacherId)
-                      ->orWhereNull('teacher_id');
-                });
-            }
-        }
-
         if ($levelId = $request->input('level_id')) {
             $query->where('level_id', $levelId);
         }
@@ -167,30 +154,19 @@ class SubjectLearnController extends Controller
                 ->with('error', 'Materi ini sedang dinonaktifkan oleh guru pengajar dan belum dapat diakses.');
         }
 
-        $activeSubjectId = (int)(session('active_subject_id') ?? $user->subject_id ?? 1);
-        if ((int)$level->subject_id !== $activeSubjectId) {
-            return redirect()->route('student.materials.index')
-                ->with('error', 'Materi ini milik mata pelajaran lain yang tidak sedang aktif.');
+        // Check if student enrolled in this subject
+        if (!$user->isEnrolledIn($level->subject_id)) {
+            return redirect()->route('student.dashboard')
+                ->with('error', "Materi ini milik mata pelajaran {$level->subject->name} yang belum Anda aktifkan.");
         }
 
-        // Check English teacher isolation: student only sees their teacher's material or general materials
-        $englishTeacherId = $user->enrollments()->where('subject_id', 1)->value('teacher_id')
-            ?? ($user->subject_id == 1 ? $user->created_by : null);
-        if ($level->subject_id == 1 && $englishTeacherId && $material->teacher_id && $material->teacher_id != $englishTeacherId) {
-            return redirect()->route('student.materials.index')
-                ->with('error', 'Materi ini disediakan oleh guru pengajar lain.');
-        }
+        // Set or update active subject in session seamlessly
+        session(['active_subject_id' => $level->subject_id]);
 
         // Check class restriction: if material is assigned to a different class/group
         if (!$material->isAccessibleByClass($user->class_name)) {
             return redirect()->route('student.materials.index')
                 ->with('error', "Materi ini hanya dapat diakses oleh siswa di {$material->formatted_class_label}. Anda terdaftar di {$user->class_name}.");
-        }
-
-        // Check if student enrolled in this subject
-        if (!$user->isEnrolledIn($level->subject_id)) {
-            return redirect()->route('student.dashboard')
-                ->with('error', "Materi ini milik mata pelajaran {$level->subject->name} yang belum Anda aktifkan.");
         }
 
         // Check if student has unlocked the exercise level (for info only)
@@ -206,11 +182,6 @@ class SubjectLearnController extends Controller
 
         if (!empty($user->class_name)) {
             $otherMaterialsQuery->forStudentClass($user->class_name);
-        }
-        if ($level->subject_id == 1 && $englishTeacherId) {
-            $otherMaterialsQuery->where(function ($tq) use ($englishTeacherId) {
-                $tq->where('teacher_id', $englishTeacherId)->orWhereNull('teacher_id');
-            });
         }
 
         $otherMaterials = $otherMaterialsQuery->orderBy('order', 'asc')->get();
@@ -230,29 +201,17 @@ class SubjectLearnController extends Controller
                 ->with('error', 'Materi ini sedang dinonaktifkan oleh guru pengajar dan tidak dapat diunduh.');
         }
 
-        $activeSubjectId = (int)(session('active_subject_id') ?? $user->subject_id ?? 1);
-        if ((int)$material->level->subject_id !== $activeSubjectId) {
-            return redirect()->route('student.materials.index')
-                ->with('error', 'File materi ini milik mata pelajaran yang sedang tidak aktif.');
+        if (!$user->isEnrolledIn($material->level->subject_id)) {
+            return redirect()->route('student.dashboard')
+                ->with('error', 'Akses unduh materi terkunci karena Anda belum terdaftar di mata pelajaran ini.');
         }
 
-        // Check English teacher isolation
-        $englishTeacherId = $user->enrollments()->where('subject_id', 1)->value('teacher_id')
-            ?? ($user->subject_id == 1 ? $user->created_by : null);
-        if ($material->level->subject_id == 1 && $englishTeacherId && $material->teacher_id && $material->teacher_id != $englishTeacherId) {
-            return redirect()->route('student.materials.index')
-                ->with('error', 'File ini milik kelas guru pengajar lain.');
-        }
+        session(['active_subject_id' => $material->level->subject_id]);
 
         // Check class restriction: letter groups and specific classes
         if (!$material->isAccessibleByClass($user->class_name)) {
             return redirect()->route('student.materials.index')
                 ->with('error', "File ini hanya dapat diunduh oleh siswa di {$material->formatted_class_label}. Anda terdaftar di {$user->class_name}.");
-        }
-
-        if (!$user->isEnrolledIn($material->level->subject_id)) {
-            return redirect()->route('student.dashboard')
-                ->with('error', 'Akses unduh materi terkunci karena Anda belum terdaftar di mata pelajaran ini.');
         }
 
         if (!$material->file_path) {
@@ -282,24 +241,12 @@ class SubjectLearnController extends Controller
                 ->with('error', 'Materi ini sedang dinonaktifkan oleh guru pengajar.');
         }
 
-        $activeSubjectId = (int)(session('active_subject_id') ?? $user->subject_id ?? 1);
-        if ((int)$material->level->subject_id !== $activeSubjectId) {
-            return redirect()->route('student.materials.index')
-                ->with('error', 'Pratinjau materi ini bukan untuk mata pelajaran yang sedang aktif.');
-        }
-
-        // Check English teacher isolation
-        $englishTeacherId = $user->enrollments()->where('subject_id', 1)->value('teacher_id')
-            ?? ($user->subject_id == 1 ? $user->created_by : null);
-        if ($material->level->subject_id == 1 && $englishTeacherId && $material->teacher_id && $material->teacher_id != $englishTeacherId) {
-            return redirect()->route('student.materials.index')
-                ->with('error', 'Pratinjau materi ini bukan untuk kelas Anda.');
-        }
-
         if (!$user->isEnrolledIn($material->level->subject_id)) {
             return redirect()->route('student.enroll.index')
                 ->with('error', 'Akses pratinjau materi terkunci karena Anda belum terdaftar di mata pelajaran ini.');
         }
+
+        session(['active_subject_id' => $material->level->subject_id]);
 
         if (!$material->file_path) {
             return redirect()->route('student.materials.view', $material);

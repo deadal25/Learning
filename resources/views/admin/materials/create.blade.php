@@ -150,15 +150,23 @@
                 <div class="form-group">
                     <label class="form-label" for="slide_file" style="font-weight: 700;">File Presentasi PPT, PPTX, PDF, DOC, atau Gambar</label>
                     <input type="file" name="slide_file" id="slide_file" class="form-control" accept=".ppt,.pptx,.pdf,.pps,.ppsx,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp">
-                    <span class="form-text">
-                        Format yang didukung: <strong>.ppt, .pptx, .pdf, .docx, .png, .jpg</strong>. Maksimal 50 MB.
+                    <div id="fileSizeStatusBox" style="display: none; margin-top: 8px; padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; border: 1px solid #cbd5e1;"></div>
+                    <div id="chunkProgressWrap" style="display: none; margin-top: 10px;">
+                        <div style="height: 8px; width: 100%; background: #e2e8f0; border-radius: 9999px; overflow: hidden;">
+                            <div id="chunkProgressBar" style="height: 100%; width: 0%; background: #4f46e5; transition: width 0.2s;"></div>
+                        </div>
+                        <div id="chunkProgressText" style="font-size: 0.8rem; color: #4338ca; margin-top: 4px; font-weight: 600;"></div>
+                    </div>
+                    <span class="form-text" style="margin-top: 6px;">
+                        Format yang didukung: <strong>.ppt, .pptx, .pdf, .docx, .png, .jpg</strong>.
+                        Untuk berkas besar (> 4 MB), sistem akan otomatis mengunggah dalam pecahan data aman untuk menghindari limit serverless Vercel.
                     </span>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="slide_url" style="font-weight: 700;">Tautan Slide Eksternal (Opsional)</label>
-                    <input type="url" name="slide_url" id="slide_url" class="form-control" value="{{ old('slide_url') }}" placeholder="https://docs.google.com/presentation/d/.../embed">
-                    <span class="form-text">Tautan Google Slides / Canva / OneDrive jika menggunakan presentasi daring.</span>
+                    <input type="url" name="slide_url" id="slide_url" class="form-control" value="{{ old('slide_url') }}" placeholder="https://docs.google.com/presentation/d/.../embed atau link Google Drive / Canva">
+                    <span class="form-text">Tautan Google Slides / Canva / Google Drive / OneDrive jika menggunakan presentasi daring.</span>
                 </div>
 
                 <div class="form-group">
@@ -183,11 +191,137 @@
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 2rem;">
-                    <button type="submit" class="btn btn-primary" style="font-weight: 700; padding: 10px 22px;">Upload & Simpan Materi</button>
+                    <button type="submit" id="btnSubmitForm" class="btn btn-primary" style="font-weight: 700; padding: 10px 22px;">Upload & Simpan Materi</button>
                     <a href="{{ route('admin.materials.index') }}" class="btn btn-secondary" style="padding: 10px 18px;">Batal</a>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[action="{{ route('admin.materials.store') }}"]');
+    const fileInput = document.getElementById('slide_file');
+    const statusBox = document.getElementById('fileSizeStatusBox');
+    const progressWrap = document.getElementById('chunkProgressWrap');
+    const progressBar = document.getElementById('chunkProgressBar');
+    const progressText = document.getElementById('chunkProgressText');
+    const submitBtn = document.getElementById('btnSubmitForm');
+
+    if (!form || !fileInput) return;
+
+    fileInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (!file) {
+            statusBox.style.display = 'none';
+            return;
+        }
+
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        statusBox.style.display = 'block';
+
+        if (file.size > 3.5 * 1024 * 1024) {
+            statusBox.innerHTML = '⚡ <strong>File berukuran ' + sizeMB + ' MB.</strong> Sistem akan otomatis membagi berkas menjadi pecahan aman agar tidak terkena limit 4.5 MB Vercel saat Anda menekan tombol Simpan.';
+            statusBox.style.background = '#eef2ff';
+            statusBox.style.color = '#3730a3';
+            statusBox.style.borderColor = '#c7d2fe';
+        } else {
+            statusBox.innerHTML = '✅ <strong>File berukuran ' + sizeMB + ' MB.</strong> Ukuran file aman untuk diunggah langsung.';
+            statusBox.style.background = '#ecfdf5';
+            statusBox.style.color = '#065f46';
+            statusBox.style.borderColor = '#a7f3d0';
+        }
+    });
+
+    form.addEventListener('submit', async function(e) {
+        const file = fileInput.files[0];
+        const preuploaded = form.querySelector('input[name="preuploaded_file_path"]');
+
+        if (!file || file.size <= 3.5 * 1024 * 1024 || (preuploaded && preuploaded.value)) {
+            return true;
+        }
+
+        e.preventDefault();
+
+        const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+
+        progressWrap.style.display = 'block';
+        submitBtn.disabled = true;
+        const origBtnText = submitBtn.innerText;
+        submitBtn.innerText = 'Mengunggah Berkas...';
+
+        const csrfToken = form.querySelector('input[name="_token"]')?.value;
+
+        try {
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(file.size, start + CHUNK_SIZE);
+                const chunkBlob = file.slice(start, end);
+
+                const formData = new FormData();
+                formData.append('_token', csrfToken);
+                formData.append('upload_id', uploadId);
+                formData.append('chunk_index', i);
+                formData.append('total_chunks', totalChunks);
+                formData.append('file_name', file.name);
+                formData.append('chunk_data', chunkBlob, file.name);
+
+                const percent = Math.round(((i) / totalChunks) * 100);
+                progressBar.style.width = percent + '%';
+                progressText.innerText = 'Mengunggah potongan aman ' + (i + 1) + ' dari ' + totalChunks + ' (' + percent + '%)...';
+
+                const response = await fetch("{{ route('admin.materials.chunk-upload') }}", {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server mengembalikan status ' + response.status + ' saat mengunggah bagian ' + (i + 1));
+                }
+
+                const result = await response.json();
+                if (result.completed) {
+                    progressBar.style.width = '100%';
+                    progressText.innerText = '✅ Berkas utuh selesai diproses di server. Menyimpan data materi...';
+
+                    let inputPath = form.querySelector('input[name="preuploaded_file_path"]');
+                    if (!inputPath) {
+                        inputPath = document.createElement('input');
+                        inputPath.type = 'hidden';
+                        inputPath.name = 'preuploaded_file_path';
+                        form.appendChild(inputPath);
+                    }
+                    inputPath.value = result.file_path;
+
+                    let inputName = form.querySelector('input[name="preuploaded_file_name"]');
+                    if (!inputName) {
+                        inputName = document.createElement('input');
+                        inputName.type = 'hidden';
+                        inputName.name = 'preuploaded_file_name';
+                        form.appendChild(inputName);
+                    }
+                    inputName.value = result.file_name;
+
+                    fileInput.value = '';
+                    form.submit();
+                    return;
+                }
+            }
+        } catch (err) {
+            console.error('Upload chunk error:', err);
+            progressText.innerHTML = '<span style="color: #ef4444; font-weight: 700;">❌ ' + err.message + '</span><br><small style="color: #64748b;">Gagal mengunggah berkas. Anda dapat menggunakan Tautan Slide Google Drive/Canva di bawah sebagai alternatif.</small>';
+            submitBtn.disabled = false;
+            submitBtn.innerText = origBtnText;
+        }
+    });
+});
+</script>
+@endpush
 @endsection

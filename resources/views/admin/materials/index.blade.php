@@ -151,6 +151,11 @@
                                         @if($mat->file_name)
                                             <div style="font-size: 0.74rem; color: #475569; font-family: monospace;">📁 {{ $mat->file_name }}</div>
                                         @endif
+                                        @if($mat->teacher)
+                                            <div style="font-size: 0.74rem; color: #4f46e5; font-weight: 600; margin-top: 2px;">
+                                                👤 Pengunggah: {{ $mat->teacher_id === auth()->id() ? 'Anda (' . $mat->teacher->name . ')' : $mat->teacher->name }}
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             </td>
@@ -204,9 +209,23 @@
                                 </form>
                             </td>
                             <td>
-                                <span class="badge badge-neutral" style="font-weight: 700;">
-                                    {{ strtoupper($mat->file_type ?? 'Embed URL') }}
-                                </span>
+                                @if($mat->isPpt())
+                                    <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 800; border: 1px solid #fde68a; font-size: 0.78rem;">
+                                        📊 Slide PPT
+                                    </span>
+                                @elseif($mat->isPdf())
+                                    <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 800; border: 1px solid #fecaca; font-size: 0.78rem;">
+                                        📕 Dokumen PDF
+                                    </span>
+                                @elseif($mat->isImage())
+                                    <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 800; font-size: 0.78rem;">
+                                        🖼️ Gambar
+                                    </span>
+                                @else
+                                    <span class="badge badge-neutral" style="font-weight: 700;">
+                                        {{ strtoupper($mat->file_type ?? 'Embed URL') }}
+                                    </span>
+                                @endif
                             </td>
                             <td>
                                 <span style="font-size: 0.85rem; color: #64748b;">

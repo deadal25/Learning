@@ -54,6 +54,37 @@ class Material extends Model
         return null;
     }
 
+    public function getPublicViewerUrlAttribute(): ?string
+    {
+        if (empty($this->file_path)) {
+            return null;
+        }
+
+        $appUrl = config('app.url');
+        $currentHost = (request() && request()->getSchemeAndHttpHost()) ? request()->getSchemeAndHttpHost() : null;
+
+        $host = $currentHost ?: $appUrl ?: 'https://learning-musashi.vercel.app';
+        if (str_contains($host, 'localhost') || str_contains($host, '127.0.0.1')) {
+            $host = 'https://learning-musashi.vercel.app';
+        }
+
+        return rtrim($host, '/') . '/storage/' . ltrim($this->file_path, '/');
+    }
+
+    public function getOfficeEmbedUrlAttribute(): ?string
+    {
+        $url = $this->public_viewer_url;
+        if (!$url) return null;
+        return 'https://view.officeapps.live.com/op/embed.aspx?src=' . urlencode($url);
+    }
+
+    public function getGoogleEmbedUrlAttribute(): ?string
+    {
+        $url = $this->public_viewer_url;
+        if (!$url) return null;
+        return 'https://docs.google.com/viewer?url=' . urlencode($url) . '&embedded=true';
+    }
+
     public function isPdf(): bool
     {
         $ext = strtolower($this->file_type ?? '');
@@ -138,6 +169,19 @@ class Material extends Model
             $url = preg_replace('/(\/edit|\/pub)(\?.*)?$/', '/embed?start=false&loop=false&delayms=3000', $url);
         }
 
+        // Convert Google Drive file link to /preview embed
+        if (str_contains($url, 'drive.google.com/file/d/')) {
+            $url = preg_replace('/(\/view|\/edit)(\?.*)?$/', '/preview', $url);
+            if (!str_contains($url, '/preview')) {
+                $url = rtrim($url, '/') . '/preview';
+            }
+        }
+
+        // Convert direct external PPT/PPTX link to Office Online Viewer embed
+        if (preg_match('/\.(pptx?|ppsx?)(\?.*)?$/i', $url) && !str_contains($url, 'view.officeapps.live.com')) {
+            $url = 'https://view.officeapps.live.com/op/embed.aspx?src=' . urlencode($url);
+        }
+
         return $url;
     }
 
@@ -195,6 +239,13 @@ class Material extends Model
             return true;
         }
 
+        // Normalized match without spaces (e.g. 'Grup 1' matches 'Grup1')
+        $cleanTarget = strtolower(str_replace(' ', '', $targetClass));
+        $cleanStudent = strtolower(str_replace(' ', '', $studentClass));
+        if ($cleanTarget === $cleanStudent) {
+            return true;
+        }
+
         // Letter group matching (e.g. student in 'I1', 'I2' matches target 'I', 'Grup I', 'Kelas I')
         $studentPrefix = strtoupper(substr($studentClass, 0, 1));
         $allowedPrefixes = [
@@ -225,13 +276,30 @@ class Material extends Model
         $trimmed = trim($studentClassName);
         $prefix = strtoupper(substr($trimmed, 0, 1));
 
-        $allowed = array_unique([
+        $allowed = [
             $trimmed,
+            str_replace(' ', '', $trimmed),
             $prefix,
             'Grup ' . $prefix,
             'Kelas ' . $prefix,
             'Class ' . $prefix,
-        ]);
+        ];
+
+        // If pattern matches 'Grup1' or 'Grup 1'
+        if (preg_match('/^grup\s*(\d+)$/i', $trimmed, $gm)) {
+            $allowed[] = 'Grup' . $gm[1];
+            $allowed[] = 'Grup ' . $gm[1];
+            $allowed[] = $gm[1];
+        }
+
+        // If pattern matches 'I1', 'B2', etc.
+        if (preg_match('/^([a-zA-Z]+)\s*(\d+)$/', $trimmed, $lm)) {
+            $allowed[] = $lm[1];
+            $allowed[] = 'Grup ' . $lm[1];
+            $allowed[] = 'Kelas ' . $lm[1];
+        }
+
+        $allowed = array_unique(array_filter($allowed));
 
         return $query->where(function ($q) use ($allowed) {
             $q->whereIn('class_name', $allowed)

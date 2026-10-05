@@ -34,16 +34,12 @@ class MaterialController extends Controller
             ? Subject::where('id', $user->subject_id)->with('levels')->get()
             : Subject::with('levels')->get();
 
-        $query = Material::with('level.subject');
+        $query = Material::with(['level.subject', 'teacher']);
 
         if ($isTeacher && $user->subject_id) {
             $query->whereHas('level', function ($q) use ($user) {
                 $q->where('subject_id', $user->subject_id);
             });
-            // Khusus guru bahasa inggris: isolasi materi antar sesama guru bahasa inggris
-            if ((int)$user->subject_id === 1) {
-                $query->where('teacher_id', $user->id);
-            }
         } elseif ($subjectId = $request->input('subject_id')) {
             $query->whereHas('level', function ($q) use ($subjectId) {
                 $q->where('subject_id', $subjectId);
@@ -154,7 +150,11 @@ class MaterialController extends Controller
         $fileName = null;
         $fileType = null;
 
-        if ($request->hasFile('slide_file')) {
+        if ($request->filled('preuploaded_file_path')) {
+            $filePath = $request->input('preuploaded_file_path');
+            $fileName = $request->input('preuploaded_file_name') ?: pathinfo($filePath, PATHINFO_BASENAME);
+            $fileType = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) ?: 'pptx';
+        } elseif ($request->hasFile('slide_file')) {
             $file = $request->file('slide_file');
             $originalName = $file->getClientOriginalName();
             $ext = strtolower($file->getClientOriginalExtension());
@@ -200,18 +200,116 @@ class MaterialController extends Controller
             ->with('success', 'Materi presentasi/slide berhasil diunggah.');
     }
 
-    public function show(Material $material): View
+    /**
+     * Chunked upload handler for files exceeding Vercel 4.5MB serverless limit.
+     */
+    public function uploadChunk(Request $request): \Illuminate\Http\JsonResponse
     {
         $user = Auth::user();
-        $isTeacher = $user->isAdmin() && !$user->isSuperAdmin();
-        if ($isTeacher && $user->subject_id) {
-            abort_if($material->level->subject_id !== $user->subject_id, 403, 'Anda tidak berhak melihat materi ini.');
-            if ((int)$user->subject_id === 1 && $material->teacher_id && $material->teacher_id !== $user->id) {
-                abort(403, 'Anda tidak berhak melihat materi milik guru lain.');
+        if (!$user || !$user->isAdmin()) {
+            return response()->json(['error' => 'Tidak memiliki izin upload.'], 403);
+        }
+
+        $uploadId = preg_replace('/[^a-zA-Z0-9_\-]/', '', (string)$request->input('upload_id'));
+        $chunkIndex = (int) $request->input('chunk_index', 0);
+        $totalChunks = (int) $request->input('total_chunks', 1);
+        $originalName = (string) $request->input('file_name', 'presentation.pptx');
+
+        if (empty($uploadId) || !$request->hasFile('chunk_data')) {
+            return response()->json(['error' => 'Payload potongan berkas tidak lengkap.'], 422);
+        }
+
+        $chunkDir = storage_path("app/public/chunks_{$uploadId}");
+        if (!is_dir($chunkDir)) {
+            @mkdir($chunkDir, 0777, true);
+        }
+
+        $chunkFile = $request->file('chunk_data');
+        $chunkFile->move($chunkDir, "part_{$chunkIndex}");
+
+        // Check if all chunks have arrived
+        $allPresent = true;
+        for ($i = 0; $i < $totalChunks; $i++) {
+            if (!file_exists("{$chunkDir}/part_{$i}")) {
+                $allPresent = false;
+                break;
             }
         }
 
-        $material->load('level.subject');
+        if ($allPresent) {
+            $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) ?: 'pptx';
+            $storedFilename = \Illuminate\Support\Str::random(40) . '.' . $ext;
+
+            $materialsDir = storage_path('app/public/materials');
+            if (!is_dir($materialsDir)) {
+                @mkdir($materialsDir, 0777, true);
+            }
+            $finalPath = "{$materialsDir}/{$storedFilename}";
+
+            $out = fopen($finalPath, 'wb');
+            for ($i = 0; $i < $totalChunks; $i++) {
+                $partPath = "{$chunkDir}/part_{$i}";
+                $in = fopen($partPath, 'rb');
+                if ($in) {
+                    stream_copy_to_stream($in, $out);
+                    fclose($in);
+                }
+                @unlink($partPath);
+            }
+            fclose($out);
+            @rmdir($chunkDir);
+
+            // Also copy to bundled materials if writable
+            $bundledMaterials = base_path('storage/app/public/materials');
+            if (is_dir($bundledMaterials) && is_writable($bundledMaterials)) {
+                @copy($finalPath, "{$bundledMaterials}/{$storedFilename}");
+            }
+
+            return response()->json([
+                'completed' => true,
+                'file_path' => "materials/{$storedFilename}",
+                'file_name' => $originalName,
+                'file_type' => $ext,
+            ]);
+        }
+
+        return response()->json([
+            'completed' => false,
+            'chunk_index' => $chunkIndex,
+        ]);
+    }
+
+    /**
+     * Authorize that the current teacher can access or modify the material safely.
+     */
+    protected function authorizeMaterialAccess(Material $material, string $action = 'mengakses'): void
+    {
+        $user = Auth::user();
+        if (!$user) {
+            abort(401);
+        }
+
+        $isTeacher = $user->isAdmin() && !$user->isSuperAdmin();
+        if (!$isTeacher || !$user->subject_id) {
+            return;
+        }
+
+        // The teacher who created the material is always allowed
+        if ($material->teacher_id && (int)$material->teacher_id === (int)$user->id) {
+            return;
+        }
+
+        $material->loadMissing('level.subject');
+        if ($material->level && (int)$material->level->subject_id !== (int)$user->subject_id) {
+            abort(403, "Anda tidak berhak {$action} materi mata pelajaran lain.");
+        }
+    }
+
+    public function show(Material $material): View
+    {
+        $this->authorizeMaterialAccess($material, 'melihat');
+
+        $material->loadMissing('level.subject', 'teacher');
         $level = $material->level;
 
         $presentationData = \App\Services\DocumentConverterService::ensureConverted($material);
@@ -221,14 +319,13 @@ class MaterialController extends Controller
 
     public function edit(Material $material): View
     {
+        $this->authorizeMaterialAccess($material, 'mengedit');
+
         $user = Auth::user();
         $isTeacher = $user->isAdmin() && !$user->isSuperAdmin();
+        $material->loadMissing('level.subject', 'teacher');
 
         if ($isTeacher && $user->subject_id) {
-            abort_if($material->level->subject_id !== $user->subject_id, 403, 'Anda tidak berhak mengedit materi ini.');
-            if ((int)$user->subject_id === 1 && $material->teacher_id && $material->teacher_id !== $user->id) {
-                abort(403, 'Anda tidak berhak mengedit materi milik guru lain.');
-            }
             $subjects = Subject::where('id', $user->subject_id)->with('levels')->get();
         } else {
             $subjects = Subject::with('levels')->get();
@@ -247,15 +344,10 @@ class MaterialController extends Controller
 
     public function update(Request $request, Material $material): RedirectResponse
     {
+        $this->authorizeMaterialAccess($material, 'mengedit');
+
         $user = Auth::user();
         $isTeacher = $user->isAdmin() && !$user->isSuperAdmin();
-
-        if ($isTeacher && $user->subject_id) {
-            abort_if($material->level->subject_id !== $user->subject_id, 403);
-            if ((int)$user->subject_id === 1 && $material->teacher_id && $material->teacher_id !== $user->id) {
-                abort(403, 'Anda tidak berhak memperbarui materi milik guru lain.');
-            }
-        }
 
         $validated = $request->validate([
             'level_id' => ['required', 'exists:levels,id'],
@@ -289,14 +381,20 @@ class MaterialController extends Controller
 
         if ($isTeacher && $user->subject_id) {
             $level = Level::findOrFail($validated['level_id']);
-            abort_if($level->subject_id !== $user->subject_id, 403);
+            abort_if((int)$level->subject_id !== (int)$user->subject_id, 403, 'Tingkatan level yang dipilih bukan untuk mata pelajaran Anda.');
         }
 
         $filePath = $material->file_path;
         $fileName = $material->file_name;
         $fileType = $material->file_type;
+        $fileChanged = false;
 
-        if ($request->hasFile('slide_file')) {
+        if ($request->filled('preuploaded_file_path')) {
+            $filePath = $request->input('preuploaded_file_path');
+            $fileName = $request->input('preuploaded_file_name') ?: pathinfo($filePath, PATHINFO_BASENAME);
+            $fileType = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) ?: 'pptx';
+            $fileChanged = true;
+        } elseif ($request->hasFile('slide_file')) {
             if ($material->file_path && Storage::disk('public')->exists($material->file_path)) {
                 Storage::disk('public')->delete($material->file_path);
             }
@@ -313,6 +411,7 @@ class MaterialController extends Controller
             $filePath = $savedPath;
             $fileName = $originalName;
             $fileType = $ext;
+            $fileChanged = true;
         }
 
         $targetClass = !empty($validated['class_name']) ? trim($validated['class_name']) : null;
@@ -331,7 +430,7 @@ class MaterialController extends Controller
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $material->is_active,
         ]);
 
-        if ($request->hasFile('slide_file')) {
+        if ($fileChanged) {
             // Delete old slides
             Storage::disk('public')->deleteDirectory("materials/slides_{$material->id}");
             Storage::disk('public')->delete("materials/converted_{$material->id}.pdf");
@@ -344,15 +443,7 @@ class MaterialController extends Controller
 
     public function toggleActive(Material $material): RedirectResponse
     {
-        $user = Auth::user();
-        $isTeacher = $user->isAdmin() && !$user->isSuperAdmin();
-
-        if ($isTeacher && $user->subject_id) {
-            abort_if($material->level->subject_id !== $user->subject_id, 403, 'Anda tidak berhak mengubah status materi mata pelajaran lain.');
-            if ((int)$user->subject_id === 1 && $material->teacher_id && $material->teacher_id !== $user->id) {
-                abort(403, 'Anda tidak berhak mengubah status materi milik guru lain.');
-            }
-        }
+        $this->authorizeMaterialAccess($material, 'mengubah status');
 
         $material->is_active = !$material->is_active;
         $material->save();
@@ -366,14 +457,7 @@ class MaterialController extends Controller
 
     public function destroy(Material $material): RedirectResponse
     {
-        $user = Auth::user();
-        $isTeacher = $user->isAdmin() && !$user->isSuperAdmin();
-        if ($isTeacher && $user->subject_id) {
-            abort_if($material->level->subject_id !== $user->subject_id, 403);
-            if ((int)$user->subject_id === 1 && $material->teacher_id && $material->teacher_id !== $user->id) {
-                abort(403, 'Anda tidak berhak menghapus materi milik guru lain.');
-            }
-        }
+        $this->authorizeMaterialAccess($material, 'menghapus');
 
         if ($material->file_path && Storage::disk('public')->exists($material->file_path)) {
             Storage::disk('public')->delete($material->file_path);
@@ -390,11 +474,7 @@ class MaterialController extends Controller
 
     public function download(Material $material): BinaryFileResponse|RedirectResponse
     {
-        $user = Auth::user();
-        $isTeacher = $user->isAdmin() && !$user->isSuperAdmin();
-        if ($isTeacher && (int)$user->subject_id === 1 && $material->teacher_id && $material->teacher_id !== $user->id) {
-            abort(403, 'Anda tidak berhak mengunduh materi milik guru lain.');
-        }
+        $this->authorizeMaterialAccess($material, 'mengunduh');
 
         $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
         if (!$absPath) {
@@ -412,10 +492,7 @@ class MaterialController extends Controller
      */
     public function preview(Material $material): \Symfony\Component\HttpFoundation\Response|RedirectResponse
     {
-        $user = Auth::user();
-        if ($user->isAdmin() && !$user->isSuperAdmin() && $user->subject_id) {
-            abort_if($material->level->subject_id !== $user->subject_id, 403);
-        }
+        $this->authorizeMaterialAccess($material, 'melihat pratinjau');
 
         if (!$material->file_path) {
             return redirect()->route('admin.materials.show', $material);
@@ -462,10 +539,7 @@ class MaterialController extends Controller
      */
     public function reconvert(Material $material): RedirectResponse
     {
-        $user = Auth::user();
-        if ($user->isAdmin() && !$user->isSuperAdmin() && $user->subject_id) {
-            abort_if($material->level->subject_id !== $user->subject_id, 403);
-        }
+        $this->authorizeMaterialAccess($material, 'mengonversi');
 
         \App\Services\DocumentConverterService::ensureConverted($material, true);
 

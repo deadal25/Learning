@@ -67,15 +67,25 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            @if($material->isPpt() && !empty($presentationData['has_slides']) && !empty($presentationData['pdf_url']))
-                <!-- View Mode Toggle (Slide vs PDF) -->
+            @if($material->isPpt())
+                <!-- Presentation View Modes -->
                 <div style="display: inline-flex; background: rgba(255,255,255,0.1); border-radius: 6px; padding: 3px; border: 1px solid rgba(255,255,255,0.2);">
-                    <button type="button" id="btnModeSlides" onclick="switchViewMode('slides')" class="btn btn-sm" style="background: #4f46e5; color: #fff; border: none; font-size: 0.8rem; font-weight: 600; padding: 4px 10px;">
-                        🖥️ Slide Presentasi
+                    @if(!empty($presentationData['has_slides']))
+                        <button type="button" id="btnModeSlides" onclick="switchViewMode('slides')" class="btn btn-sm" style="background: #4f46e5; color: #fff; border: none; font-size: 0.8rem; font-weight: 600; padding: 4px 10px;">
+                            🖥️ Slide Interaktif
+                        </button>
+                    @endif
+                    <button type="button" id="btnModeOffice" onclick="switchViewMode('office')" class="btn btn-sm" style="background: {{ empty($presentationData['has_slides']) ? '#4f46e5' : 'transparent' }}; color: {{ empty($presentationData['has_slides']) ? '#fff' : '#cbd5e1' }}; border: none; font-size: 0.8rem; font-weight: 600; padding: 4px 10px;">
+                        🖥️ Office Web
                     </button>
-                    <button type="button" id="btnModePdf" onclick="switchViewMode('pdf')" class="btn btn-sm" style="background: transparent; color: #cbd5e1; border: none; font-size: 0.8rem; font-weight: 600; padding: 4px 10px;">
-                        📄 Dokumen PDF Asli
+                    <button type="button" id="btnModeGoogle" onclick="switchViewMode('google')" class="btn btn-sm" style="background: transparent; color: #cbd5e1; border: none; font-size: 0.8rem; font-weight: 600; padding: 4px 10px;">
+                        🌐 Google Docs
                     </button>
+                    @if(!empty($presentationData['pdf_url']))
+                        <button type="button" id="btnModePdf" onclick="switchViewMode('pdf')" class="btn btn-sm" style="background: transparent; color: #cbd5e1; border: none; font-size: 0.8rem; font-weight: 600; padding: 4px 10px;">
+                            📄 PDF
+                        </button>
+                    @endif
                 </div>
             @endif
 
@@ -188,19 +198,65 @@
             @endif
 
         @elseif($material->file_path && $material->isPpt())
-            <!-- Standby fallback for PPT / PPTX file -->
-            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: #ffffff; padding: 4rem 2rem; text-align: center;">
-                <div style="max-width: 600px; margin: 0 auto;">
-                    <div style="font-size: 4rem; margin-bottom: 1rem;">📊</div>
-                    <h2 style="font-size: 1.6rem; color: #ffffff; margin-bottom: 0.5rem;">{{ $material->file_name ?? $material->title }}</h2>
-                    <p style="color: #cbd5e1; margin-bottom: 1.5rem; font-size: 0.95rem;">
-                        File presentasi PowerPoint telah siap. Anda dapat mengunduh berkas materi untuk membukanya langsung di perangkat Anda.
-                    </p>
-                    <a href="{{ route('student.materials.download', $material) }}" class="btn btn-warning btn-lg" style="font-weight: 700;">
-                        ⬇ Unduh Berkas Presentasi PPT ({{ strtoupper($material->file_type ?? 'PPTX') }})
-                    </a>
+            <!-- Embedded Presentation Web Mode (Microsoft Office Online Viewer & Google Docs Viewer) -->
+            <div id="embedModeView" class="embed-viewer-wrap" style="display: {{ empty($presentationData['has_slides']) ? 'block' : 'none' }}; width: 100%; background: #0f172a;">
+                <div style="background: #1e293b; padding: 10px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="badge badge-warning" style="font-weight: 700; font-size: 0.82rem;">📊 Presentasi PowerPoint (PPTX)</span>
+                        <span style="font-size: 0.82rem; color: #cbd5e1;" id="currentEngineText">
+                            Penampil: <strong>Microsoft Office Viewer</strong>
+                        </span>
+                    </div>
+                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-sm" id="btnEngineOfficeSub" onclick="switchViewMode('office')" style="background: #4f46e5; color: #fff; border: none; font-size: 0.78rem; font-weight: 600; padding: 4px 10px; border-radius: 4px;">
+                            🖥️ Office Viewer
+                        </button>
+                        <button type="button" class="btn btn-sm" id="btnEngineGoogleSub" onclick="switchViewMode('google')" style="background: #334155; color: #cbd5e1; border: none; font-size: 0.78rem; font-weight: 600; padding: 4px 10px; border-radius: 4px;">
+                            🌐 Google Viewer
+                        </button>
+                        <a href="{{ $material->public_viewer_url }}" target="_blank" class="btn btn-secondary btn-sm" style="font-size: 0.78rem; background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.25); padding: 4px 10px;">
+                            ↗ Buka Berkas
+                        </a>
+                        <a href="{{ route('student.materials.download', $material) }}" class="btn btn-warning btn-sm" style="font-size: 0.78rem; font-weight: 700; padding: 4px 10px;">
+                            ⬇ Unduh PPT
+                        </a>
+                    </div>
+                </div>
+
+                <div style="position: relative; width: 100%; height: 750px; background: #0f172a;">
+                    <iframe
+                        id="pptEmbedIframe"
+                        src="{{ $material->office_embed_url }}"
+                        style="width: 100%; height: 100%; border: none; display: block; background: #ffffff;"
+                        allowfullscreen="true"
+                        mozallowfullscreen="true"
+                        webkitallowfullscreen="true"
+                        title="{{ $material->title }}"
+                    ></iframe>
+                </div>
+
+                <div style="padding: 10px 18px; background: #1e293b; font-size: 0.82rem; color: #94a3b8; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        💡 <strong>Tips:</strong> Anda dapat membolak-balik slide presentasi langsung di atas, memperbesar slide, atau klik tombol <strong>⛶ Layar Penuh</strong>. Jika slide lambat dimuat, Anda dapat beralih ke tombol <strong>🌐 Google Viewer</strong> di atas.
+                    </div>
                 </div>
             </div>
+
+            @if(!empty($presentationData['pdf_url']))
+                <!-- Render converted PDF directly for PPT file in student view -->
+                <div id="pdfModeView" class="pdf-viewer-wrap" style="display: none; height: 750px; width: 100%; background: #525659;">
+                    <object data="{{ $presentationData['pdf_url'] }}#toolbar=1&navpanes=1" type="application/pdf" width="100%" height="100%">
+                        <iframe src="{{ $presentationData['pdf_url'] }}#toolbar=1&navpanes=1" width="100%" height="100%" style="border: none; display: block;" title="{{ $material->title }}">
+                            <div style="padding: 3rem; text-align: center; color: #ffffff;">
+                                <p style="margin-bottom: 1rem; font-size: 1.1rem; font-weight: 600;">Presentasi PPT Materi Siap Dipelajari</p>
+                                <a href="{{ route('student.materials.preview', $material) }}" target="_blank" class="btn btn-primary btn-lg" style="font-weight: 700;">
+                                    ↗ Buka Dokumen Presentasi di Tab Baru
+                                </a>
+                            </div>
+                        </iframe>
+                    </object>
+                </div>
+            @endif
 
         @elseif($material->file_path && $material->isImage())
             <!-- Original Image Viewer -->
@@ -349,34 +405,58 @@ function prevSlide() {
     }
 }
 
+const officeEmbedUrl = @json($material->office_embed_url);
+const googleEmbedUrl = @json($material->google_embed_url);
+
 function switchViewMode(mode) {
     const slideView = document.getElementById('slideModeView');
+    const embedView = document.getElementById('embedModeView');
     const pdfView = document.getElementById('pdfModeView');
+    const iframe = document.getElementById('pptEmbedIframe');
+    const engineText = document.getElementById('currentEngineText');
+
     const btnSlides = document.getElementById('btnModeSlides');
+    const btnOffice = document.getElementById('btnModeOffice');
+    const btnGoogle = document.getElementById('btnModeGoogle');
     const btnPdf = document.getElementById('btnModePdf');
+    const btnOfficeSub = document.getElementById('btnEngineOfficeSub');
+    const btnGoogleSub = document.getElementById('btnEngineGoogleSub');
+
+    [btnSlides, btnOffice, btnGoogle, btnPdf].forEach(btn => {
+        if (btn) {
+            btn.style.background = 'transparent';
+            btn.style.color = '#cbd5e1';
+        }
+    });
 
     if (mode === 'slides' && slideView) {
         slideView.style.display = 'block';
+        if (embedView) embedView.style.display = 'none';
         if (pdfView) pdfView.style.display = 'none';
-        if (btnSlides) {
-            btnSlides.style.background = '#4f46e5';
-            btnSlides.style.color = '#ffffff';
-        }
-        if (btnPdf) {
-            btnPdf.style.background = 'transparent';
-            btnPdf.style.color = '#cbd5e1';
-        }
+        if (btnSlides) { btnSlides.style.background = '#4f46e5'; btnSlides.style.color = '#fff'; }
+    } else if (mode === 'office') {
+        if (slideView) slideView.style.display = 'none';
+        if (pdfView) pdfView.style.display = 'none';
+        if (embedView) embedView.style.display = 'block';
+        if (iframe && officeEmbedUrl) iframe.src = officeEmbedUrl;
+        if (engineText) engineText.innerHTML = 'Penampil: <strong>Microsoft Office Viewer</strong>';
+        if (btnOffice) { btnOffice.style.background = '#4f46e5'; btnOffice.style.color = '#fff'; }
+        if (btnOfficeSub) { btnOfficeSub.style.background = '#4f46e5'; btnOfficeSub.style.color = '#fff'; }
+        if (btnGoogleSub) { btnGoogleSub.style.background = '#334155'; btnGoogleSub.style.color = '#cbd5e1'; }
+    } else if (mode === 'google') {
+        if (slideView) slideView.style.display = 'none';
+        if (pdfView) pdfView.style.display = 'none';
+        if (embedView) embedView.style.display = 'block';
+        if (iframe && googleEmbedUrl) iframe.src = googleEmbedUrl;
+        if (engineText) engineText.innerHTML = 'Penampil: <strong>Google Docs Viewer</strong>';
+        if (btnGoogle) { btnGoogle.style.background = '#4f46e5'; btnGoogle.style.color = '#fff'; }
+        if (btnGoogleSub) { btnGoogleSub.style.background = '#4f46e5'; btnGoogleSub.style.color = '#fff'; }
+        if (btnOfficeSub) { btnOfficeSub.style.background = '#334155'; btnOfficeSub.style.color = '#cbd5e1'; }
     } else if (mode === 'pdf' && pdfView) {
         if (slideView) slideView.style.display = 'none';
+        if (embedView) embedView.style.display = 'none';
         pdfView.style.display = 'block';
-        if (btnPdf) {
-            btnPdf.style.background = '#4f46e5';
-            btnPdf.style.color = '#ffffff';
-        }
-        if (btnSlides) {
-            btnSlides.style.background = 'transparent';
-            btnSlides.style.color = '#cbd5e1';
-        }
+        if (btnPdf) { btnPdf.style.background = '#4f46e5'; btnPdf.style.color = '#fff'; }
     }
 }
 
@@ -441,7 +521,9 @@ function toggleViewerFullscreen() {
     max-height: none !important;
     min-height: calc(100vh - 180px) !important;
 }
-#materialViewerCard:fullscreen .pdf-viewer-wrap {
+#materialViewerCard:fullscreen .pdf-viewer-wrap,
+#materialViewerCard:fullscreen .embed-viewer-wrap,
+#materialViewerCard:fullscreen #pptEmbedIframe {
     height: 100% !important;
     min-height: calc(100vh - 70px) !important;
 }

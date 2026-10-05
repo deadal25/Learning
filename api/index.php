@@ -80,10 +80,10 @@ if (!is_dir($tmpStorageMaterials)) {
 }
 ini_set('upload_tmp_dir', $tmp);
 
-// Siapkan database SQLite dari bundle jika belum ada di /tmp
+// Siapkan database SQLite dari bundle jika belum ada di /tmp atau jika bundle kode baru diupdate
 $tmpDb = $tmp . '/database.sqlite';
-if (!file_exists($tmpDb)) {
-    $bundledDb = __DIR__ . '/../database/database.sqlite';
+$bundledDb = __DIR__ . '/../database/database.sqlite';
+if (!file_exists($tmpDb) || (file_exists($bundledDb) && filemtime($bundledDb) > @filemtime($tmpDb))) {
     if (file_exists($bundledDb)) {
         @copy($bundledDb, $tmpDb);
     } else {

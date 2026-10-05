@@ -178,7 +178,7 @@ class DocumentConverterService
 
         $slideUrls = [];
         foreach ($existingSlides as $slideFile) {
-            $slideUrls[] = asset("storage/{$relativeSlidesDir}/{$slideFile}");
+            $slideUrls[] = url("storage/{$relativeSlidesDir}/{$slideFile}");
         }
 
         $pdfUrl = null;
