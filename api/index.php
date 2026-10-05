@@ -27,10 +27,10 @@ foreach ($dirs as $dir) {
     }
 }
 
-// Deteksi apakah pengguna telah mengonfigurasi Database Cloud (MySQL / PostgreSQL / DATABASE_URL)
-$envDbUrl = getenv('DATABASE_URL') ?: ($_ENV['DATABASE_URL'] ?? ($_SERVER['DATABASE_URL'] ?? ''));
+// Deteksi apakah pengguna telah mengonfigurasi Database Cloud (MySQL / PostgreSQL / DATABASE_URL / POSTGRES_URL)
+$envDbUrl = getenv('DATABASE_URL') ?: (getenv('POSTGRES_URL') ?: ($_ENV['DATABASE_URL'] ?? ($_ENV['POSTGRES_URL'] ?? ($_SERVER['DATABASE_URL'] ?? ($_SERVER['POSTGRES_URL'] ?? '')))));
 $envDbConn = getenv('DB_CONNECTION') ?: ($_ENV['DB_CONNECTION'] ?? ($_SERVER['DB_CONNECTION'] ?? ''));
-$envDbHost = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? ($_SERVER['DB_HOST'] ?? ''));
+$envDbHost = getenv('DB_HOST') ?: (getenv('POSTGRES_HOST') ?: ($_ENV['DB_HOST'] ?? ($_ENV['POSTGRES_HOST'] ?? ($_SERVER['DB_HOST'] ?? ''))));
 
 $hasExternalDb = !empty($envDbUrl)
     || in_array(strtolower((string)$envDbConn), ['mysql', 'mariadb', 'pgsql', 'postgres'])
