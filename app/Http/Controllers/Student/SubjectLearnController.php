@@ -56,21 +56,12 @@ class SubjectLearnController extends Controller
                 ->with('error', "Mata pelajaran {$subject->name} belum Anda aktifkan. Silakan masukkan Kode Kelas dari guru yang bersangkutan untuk mulai belajar.");
         }
 
-        $englishTeacherId = $user->enrollments()->where('subject_id', 1)->value('teacher_id')
-            ?? ($user->subject_id == 1 ? $user->created_by : null);
-
-        $subject->load(['levels' => function ($q) use ($user, $englishTeacherId) {
+        $subject->load(['levels' => function ($q) use ($user) {
             $q->with([
-                'materials' => function ($mq) use ($user, $englishTeacherId) {
+                'materials' => function ($mq) use ($user) {
                     $mq->where('is_active', true);
                     if (!empty($user->class_name)) {
                         $mq->forStudentClass($user->class_name);
-                    }
-                    if ($englishTeacherId) {
-                        $mq->where(function ($tq) use ($englishTeacherId) {
-                            $tq->where('teacher_id', $englishTeacherId)
-                               ->orWhereNull('teacher_id');
-                        });
                     }
                 },
                 'exercises'

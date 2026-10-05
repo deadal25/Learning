@@ -88,20 +88,10 @@ class StudentDashboardController extends Controller
         $materialsQuery = Material::query()->where('is_active', true)->with(['level.subject']);
         $materialsQuery->whereHas('level', fn($lq) => $lq->where('subject_id', $activeSubjectId));
 
-        if ((int)$activeSubjectId === 1 && !empty($user->class_name)) {
+        if (!empty($user->class_name)) {
             $materialsQuery->forStudentClass($user->class_name);
         }
 
-        if ((int)$activeSubjectId === 1) {
-            $englishTeacherId = $user->enrollments()->where('subject_id', 1)->value('teacher_id')
-                ?? ($user->subject_id == 1 ? $user->created_by : null);
-            if ($englishTeacherId) {
-                $materialsQuery->where(function ($tq) use ($englishTeacherId) {
-                    $tq->where('teacher_id', $englishTeacherId)
-                       ->orWhereNull('teacher_id');
-                });
-            }
-        }
         $recentMaterials = $materialsQuery->latest()->take(6)->get();
 
         // Compute personal attendance statistics (Jumlah kehadiran, persentase, dan realtime)

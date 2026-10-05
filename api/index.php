@@ -27,6 +27,15 @@ foreach ($dirs as $dir) {
     }
 }
 
+// Deteksi apakah pengguna telah mengonfigurasi Database Cloud (MySQL / PostgreSQL / DATABASE_URL)
+$envDbUrl = getenv('DATABASE_URL') ?: ($_ENV['DATABASE_URL'] ?? ($_SERVER['DATABASE_URL'] ?? ''));
+$envDbConn = getenv('DB_CONNECTION') ?: ($_ENV['DB_CONNECTION'] ?? ($_SERVER['DB_CONNECTION'] ?? ''));
+$envDbHost = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? ($_SERVER['DB_HOST'] ?? ''));
+
+$hasExternalDb = !empty($envDbUrl)
+    || in_array(strtolower((string)$envDbConn), ['mysql', 'mariadb', 'pgsql', 'postgres'])
+    || (!empty($envDbHost) && !in_array($envDbHost, ['127.0.0.1', 'localhost']));
+
 // Set environment variables penting agar Laravel tidak menulis ke filesystem read-only
 $envVars = [
     'APP_NAME' => 'Learning Musashi',
@@ -44,10 +53,13 @@ $envVars = [
     'CACHE_STORE' => 'array',
     'SESSION_DRIVER' => 'cookie',
     'LOG_CHANNEL' => 'stderr',
-    'DB_CONNECTION' => 'sqlite',
-    'DB_DATABASE' => $tmp . '/database.sqlite',
     'VERCEL' => '1',
 ];
+
+if (!$hasExternalDb) {
+    $envVars['DB_CONNECTION'] = 'sqlite';
+    $envVars['DB_DATABASE'] = $tmp . '/database.sqlite';
+}
 
 foreach ($envVars as $key => $val) {
     if (!getenv($key)) {
@@ -80,14 +92,16 @@ if (!is_dir($tmpStorageMaterials)) {
 }
 ini_set('upload_tmp_dir', $tmp);
 
-// Siapkan database SQLite dari bundle jika belum ada di /tmp atau jika bundle kode baru diupdate
-$tmpDb = $tmp . '/database.sqlite';
-$bundledDb = __DIR__ . '/../database/database.sqlite';
-if (!file_exists($tmpDb) || (file_exists($bundledDb) && filemtime($bundledDb) > @filemtime($tmpDb))) {
-    if (file_exists($bundledDb)) {
-        @copy($bundledDb, $tmpDb);
-    } else {
-        @touch($tmpDb);
+// Siapkan database SQLite dari bundle HANYA jika fallback SQLite yang digunakan
+if (!$hasExternalDb) {
+    $tmpDb = $tmp . '/database.sqlite';
+    $bundledDb = __DIR__ . '/../database/database.sqlite';
+    if (!file_exists($tmpDb) || (file_exists($bundledDb) && filemtime($bundledDb) > @filemtime($tmpDb))) {
+        if (file_exists($bundledDb)) {
+            @copy($bundledDb, $tmpDb);
+        } else {
+            @touch($tmpDb);
+        }
     }
 }
 

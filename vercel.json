@@ -61,8 +61,6 @@
     "APP_SERVICES_CACHE": "/tmp/storage/bootstrap_cache/services.php",
     "CACHE_STORE": "array",
     "SESSION_DRIVER": "cookie",
-    "LOG_CHANNEL": "stderr",
-    "DB_CONNECTION": "sqlite",
-    "DB_DATABASE": "/tmp/database.sqlite"
+    "LOG_CHANNEL": "stderr"
   }
 }
