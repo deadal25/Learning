@@ -176,3 +176,27 @@ Route::middleware('auth')->group(function () {
         Route::put('/profile', [StudentProfileController::class, 'update'])->name('profile.update');
     });
 });
+
+// Route penayangan berkas /storage (slide presentasi, berkas materi) di Vercel Serverless
+Route::get('/storage/{path}', function (string $path) {
+    // 1. Cek di penyimpanan sementara /tmp/storage/app/public (berkas baru yang diunggah)
+    $tmpPath = storage_path('app/public/' . $path);
+    if (file_exists($tmpPath) && is_file($tmpPath)) {
+        return response()->file($tmpPath);
+    }
+
+    // 2. Cek di penyimpanan bawaan proyek storage/app/public (berkas modul dan slide asli bawaan)
+    $bundledPath = base_path('storage/app/public/' . $path);
+    if (file_exists($bundledPath) && is_file($bundledPath)) {
+        return response()->file($bundledPath);
+    }
+
+    // 3. Cek di public/storage
+    $pubPath = public_path('storage/' . $path);
+    if (file_exists($pubPath) && is_file($pubPath)) {
+        return response()->file($pubPath);
+    }
+
+    abort(404, 'Berkas penyimpanan tidak ditemukan di server.');
+})->where('path', '.*')->name('storage.file');
+

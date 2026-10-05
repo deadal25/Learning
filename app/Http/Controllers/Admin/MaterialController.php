@@ -189,7 +189,11 @@ class MaterialController extends Controller
         ]);
 
         if ($material->file_path) {
-            \App\Services\DocumentConverterService::ensureConverted($material);
+            try {
+                \App\Services\DocumentConverterService::ensureConverted($material);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Material conversion skipped on upload: " . $e->getMessage());
+            }
         }
 
         return redirect()->route('admin.materials.index')
@@ -392,12 +396,13 @@ class MaterialController extends Controller
             abort(403, 'Anda tidak berhak mengunduh materi milik guru lain.');
         }
 
-        if (!$material->file_path || !Storage::disk('public')->exists($material->file_path)) {
+        $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
+        if (!$absPath) {
             return back()->with('error', 'File materi tidak ditemukan di penyimpanan server.');
         }
 
         return response()->download(
-            Storage::disk('public')->path($material->file_path),
+            $absPath,
             $material->file_name ?? 'materi_musashi.' . ($material->file_type ?? 'pptx')
         );
     }
@@ -418,8 +423,8 @@ class MaterialController extends Controller
 
         // 1. PDF File: Stream inline as application/pdf
         if ($material->isPdf()) {
-            $absPath = Storage::disk('public')->path($material->file_path);
-            if (file_exists($absPath)) {
+            $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
+            if ($absPath) {
                 return response()->file($absPath, [
                     'Content-Type' => 'application/pdf',
                     'Content-Disposition' => 'inline; filename="' . addslashes($material->file_name ?? 'materi.pdf') . '"',
@@ -443,8 +448,8 @@ class MaterialController extends Controller
 
         // 3. Image File: Stream image
         if ($material->isImage()) {
-            $absPath = Storage::disk('public')->path($material->file_path);
-            if (file_exists($absPath)) {
+            $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
+            if ($absPath) {
                 return response()->file($absPath);
             }
         }

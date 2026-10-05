@@ -66,12 +66,19 @@ if (empty($_SERVER['HTTP_HOST'])) {
     $_SERVER['HTTP_HOST'] = 'learning-musashi.vercel.app';
 }
 
-// Hubungkan storage/app/public jika ada berkas materi dari bundle
-$bundledStoragePublic = __DIR__ . '/../storage/app/public';
+// Siapkan direktori storage public yang bisa ditulisi (read-write) untuk upload materi baru di Vercel
 $tmpStoragePublic = $tmpStorage . '/app/public';
-if (is_dir($bundledStoragePublic) && !file_exists($tmpStoragePublic)) {
-    @symlink($bundledStoragePublic, $tmpStoragePublic);
+$tmpStorageMaterials = $tmpStoragePublic . '/materials';
+if (is_link($tmpStoragePublic)) {
+    @unlink($tmpStoragePublic);
 }
+if (!is_dir($tmpStoragePublic)) {
+    @mkdir($tmpStoragePublic, 0777, true);
+}
+if (!is_dir($tmpStorageMaterials)) {
+    @mkdir($tmpStorageMaterials, 0777, true);
+}
+ini_set('upload_tmp_dir', $tmp);
 
 // Siapkan database SQLite dari bundle jika belum ada di /tmp
 $tmpDb = $tmp . '/database.sqlite';

@@ -259,16 +259,8 @@ class SubjectLearnController extends Controller
             return back()->with('error', 'Materi ini tidak memiliki file lampiran fisik untuk diunduh.');
         }
 
-        $path = null;
-        if (Storage::disk('public')->exists($material->file_path)) {
-            $path = Storage::disk('public')->path($material->file_path);
-        } elseif (file_exists(storage_path('app/public/' . $material->file_path))) {
-            $path = storage_path('app/public/' . $material->file_path);
-        } elseif (file_exists(public_path('storage/' . $material->file_path))) {
-            $path = public_path('storage/' . $material->file_path);
-        }
-
-        if (!$path || !file_exists($path)) {
+        $path = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
+        if (!$path) {
             return back()->with('error', 'File slide atau dokumen materi belum tersedia di server.');
         }
 
@@ -315,8 +307,8 @@ class SubjectLearnController extends Controller
 
         // 1. PDF File: Stream inline as application/pdf
         if ($material->isPdf()) {
-            $absPath = Storage::disk('public')->path($material->file_path);
-            if (file_exists($absPath)) {
+            $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
+            if ($absPath) {
                 return response()->file($absPath, [
                     'Content-Type' => 'application/pdf',
                     'Content-Disposition' => 'inline; filename="' . addslashes($material->file_name ?? 'materi.pdf') . '"',
@@ -339,8 +331,8 @@ class SubjectLearnController extends Controller
 
         // 3. Image File
         if ($material->isImage()) {
-            $absPath = Storage::disk('public')->path($material->file_path);
-            if (file_exists($absPath)) {
+            $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
+            if ($absPath) {
                 return response()->file($absPath);
             }
         }
