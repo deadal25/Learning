@@ -61,6 +61,14 @@
     "APP_SERVICES_CACHE": "/tmp/storage/bootstrap_cache/services.php",
     "CACHE_STORE": "array",
     "SESSION_DRIVER": "cookie",
-    "LOG_CHANNEL": "stderr"
+    "LOG_CHANNEL": "stderr",
+    "DB_CONNECTION": "pgsql",
+    "DATABASE_URL": "postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
+    "POSTGRES_URL": "postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
+    "DATABASE_URL_UNPOOLED": "postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
+    "PGHOST": "ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech",
+    "PGUSER": "neondb_owner",
+    "PGDATABASE": "neondb",
+    "PGPASSWORD": "npg_h3QAnBczWKd0"
   }
 }

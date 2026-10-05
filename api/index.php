@@ -27,16 +27,19 @@ foreach ($dirs as $dir) {
     }
 }
 
-// Deteksi apakah pengguna telah mengonfigurasi Database Cloud (MySQL / PostgreSQL / DATABASE_URL / POSTGRES_URL)
-$envDbUrl = getenv('DATABASE_URL') ?: (getenv('POSTGRES_URL') ?: ($_ENV['DATABASE_URL'] ?? ($_ENV['POSTGRES_URL'] ?? ($_SERVER['DATABASE_URL'] ?? ($_SERVER['POSTGRES_URL'] ?? '')))));
-$envDbConn = getenv('DB_CONNECTION') ?: ($_ENV['DB_CONNECTION'] ?? ($_SERVER['DB_CONNECTION'] ?? ''));
-$envDbHost = getenv('DB_HOST') ?: (getenv('POSTGRES_HOST') ?: ($_ENV['DB_HOST'] ?? ($_ENV['POSTGRES_HOST'] ?? ($_SERVER['DB_HOST'] ?? ''))));
+// Konfigurasi Database Cloud (Neon PostgreSQL)
+$defaultNeonUrl = 'postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require';
+$envDbUrl = getenv('DATABASE_URL_UNPOOLED')
+    ?: (getenv('DATABASE_URL')
+    ?: (getenv('POSTGRES_URL')
+    ?: (getenv('POSTGRES_URL_NON_POOLING')
+    ?: ($_ENV['DATABASE_URL']
+    ?? ($_ENV['POSTGRES_URL']
+    ?? ($_SERVER['DATABASE_URL']
+    ?? ($_SERVER['POSTGRES_URL']
+    ?? $defaultNeonUrl)))))));
 
-$hasExternalDb = !empty($envDbUrl)
-    || in_array(strtolower((string)$envDbConn), ['mysql', 'mariadb', 'pgsql', 'postgres'])
-    || (!empty($envDbHost) && !in_array($envDbHost, ['127.0.0.1', 'localhost']));
-
-// Set environment variables penting agar Laravel tidak menulis ke filesystem read-only
+// Set environment variables penting agar Laravel di Vercel menggunakan PostgreSQL secara persisten
 $envVars = [
     'APP_NAME' => 'Learning Musashi',
     'APP_ENV' => 'production',
@@ -54,19 +57,21 @@ $envVars = [
     'SESSION_DRIVER' => 'cookie',
     'LOG_CHANNEL' => 'stderr',
     'VERCEL' => '1',
+    'DB_CONNECTION' => 'pgsql',
+    'DATABASE_URL' => $envDbUrl,
+    'POSTGRES_URL' => $envDbUrl,
+    'DATABASE_URL_UNPOOLED' => $envDbUrl,
+    'PGHOST' => 'ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech',
+    'PGUSER' => 'neondb_owner',
+    'PGDATABASE' => 'neondb',
+    'PGPASSWORD' => 'npg_h3QAnBczWKd0',
+    'DB_DATABASE' => $tmp . '/database.sqlite',
 ];
 
-if (!$hasExternalDb) {
-    $envVars['DB_CONNECTION'] = 'sqlite';
-    $envVars['DB_DATABASE'] = $tmp . '/database.sqlite';
-}
-
 foreach ($envVars as $key => $val) {
-    if (!getenv($key)) {
-        putenv("{$key}={$val}");
-    }
-    $_ENV[$key] = $_ENV[$key] ?? $val;
-    $_SERVER[$key] = $_SERVER[$key] ?? $val;
+    putenv("{$key}={$val}");
+    $_ENV[$key] = $val;
+    $_SERVER[$key] = $val;
 }
 
 // Paksa request di Vercel selalu dideteksi sebagai HTTPS agar asset/css/gambar tidak terblokir Mixed Content

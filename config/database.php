@@ -3,7 +3,14 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+$isVercel = !empty($_ENV['VERCEL']) || !empty($_SERVER['VERCEL']) || getenv('VERCEL');
+
+$defaultNeonUrl = 'postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require';
 $rawDbUrl = env('DATABASE_URL_UNPOOLED', env('DATABASE_URL', env('POSTGRES_URL', env('DB_URL', ''))));
+if (empty($rawDbUrl) && $isVercel) {
+    $rawDbUrl = $defaultNeonUrl;
+}
+
 if (!empty($rawDbUrl)) {
     $rawDbUrl = str_replace('-pooler.', '.', $rawDbUrl);
     $rawDbUrl = preg_replace('/([?&])(sslmode|options)=[^&]*(&|$)/', '$1', $rawDbUrl);
@@ -33,6 +40,11 @@ if (str_contains($pgHost, 'neon.tech') && !str_contains($pgSslMode, 'endpoint=')
     }
 }
 
+$selectedDefault = env('DB_CONNECTION');
+if (empty($selectedDefault) || ($selectedDefault === 'sqlite' && ($autoDefault === 'pgsql' || $isVercel))) {
+    $selectedDefault = $autoDefault;
+}
+
 return [
 
     /*
@@ -47,7 +59,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', $autoDefault),
+    'default' => $selectedDefault,
 
     /*
     |--------------------------------------------------------------------------
@@ -65,7 +77,7 @@ return [
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            'database' => env('DB_DATABASE', $isVercel ? '/tmp/database.sqlite' : database_path('database.sqlite')),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => null,
