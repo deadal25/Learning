@@ -56,15 +56,31 @@ class Material extends Model
 
     public function isPdf(): bool
     {
-        return strtolower($this->file_type ?? '') === 'pdf' || str_ends_with(strtolower($this->file_name ?? ''), '.pdf');
+        $ext = strtolower($this->file_type ?? '');
+        $path = strtolower($this->file_path ?? '');
+        $name = strtolower($this->file_name ?? '');
+
+        return $ext === 'pdf' ||
+               str_contains($ext, 'pdf') ||
+               str_ends_with($name, '.pdf') ||
+               str_ends_with($path, '.pdf');
     }
 
     public function isPpt(): bool
     {
+        if ($this->isPdf()) {
+            return false;
+        }
+
         $ext = strtolower($this->file_type ?? '');
+        $path = strtolower($this->file_path ?? '');
+        $name = strtolower($this->file_name ?? '');
+
         return in_array($ext, ['ppt', 'pptx', 'pps', 'ppsx']) ||
-               str_ends_with(strtolower($this->file_name ?? ''), '.ppt') ||
-               str_ends_with(strtolower($this->file_name ?? ''), '.pptx');
+               str_contains($ext, 'presentation') ||
+               str_contains($ext, 'powerpoint') ||
+               preg_match('/\.(pptx?|ppsx?)$/i', $name) ||
+               preg_match('/\.(pptx?|ppsx?)$/i', $path);
     }
 
     public function isImage(): bool

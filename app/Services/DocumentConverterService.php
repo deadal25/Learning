@@ -79,6 +79,30 @@ class DocumentConverterService
      */
     public static function ensureConverted(Material $material, bool $force = false): array
     {
+        $previewRoute = (auth()->check() && auth()->user()->isStudent())
+            ? 'student.materials.preview'
+            : 'admin.materials.preview';
+
+        // 1. PDF Document: STRICTLY NO SLIDES. Render directly as native PDF viewer.
+        if ($material->isPdf()) {
+            return [
+                'has_slides' => false,
+                'slides' => [],
+                'total_slides' => 0,
+                'pdf_url' => route($previewRoute, $material),
+            ];
+        }
+
+        // 2. Non-PPT materials (Images, DOC, URL): No presentation slides.
+        if (!$material->isPpt()) {
+            return [
+                'has_slides' => false,
+                'slides' => [],
+                'total_slides' => 0,
+                'pdf_url' => null,
+            ];
+        }
+
         $resolvedInput = self::resolveFilePath($material->file_path);
         if (!$material->file_path || !$resolvedInput) {
             return [
@@ -157,15 +181,8 @@ class DocumentConverterService
             $slideUrls[] = asset("storage/{$relativeSlidesDir}/{$slideFile}");
         }
 
-        // Dynamic PDF preview route based on student or staff
-        $previewRoute = (auth()->check() && auth()->user()->isStudent())
-            ? 'student.materials.preview'
-            : 'admin.materials.preview';
-
         $pdfUrl = null;
-        if ($material->isPdf()) {
-            $pdfUrl = route($previewRoute, $material);
-        } elseif (file_exists($absConvertedPdf) || file_exists($bundledConvertedPdf)) {
+        if (file_exists($absConvertedPdf) || file_exists($bundledConvertedPdf)) {
             $pdfUrl = route($previewRoute, $material);
         }
 
@@ -212,6 +229,10 @@ class DocumentConverterService
 
         if ($material->isPdf()) {
             return self::resolveFilePath($material->file_path);
+        }
+
+        if (!$material->isPpt()) {
+            return null;
         }
 
         $convertedRel = "materials/converted_{$material->id}.pdf";

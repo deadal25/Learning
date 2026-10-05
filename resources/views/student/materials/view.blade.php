@@ -67,7 +67,7 @@
         </div>
 
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            @if(!empty($presentationData['has_slides']) && !empty($presentationData['pdf_url']))
+            @if($material->isPpt() && !empty($presentationData['has_slides']) && !empty($presentationData['pdf_url']))
                 <!-- View Mode Toggle (Slide vs PDF) -->
                 <div style="display: inline-flex; background: rgba(255,255,255,0.1); border-radius: 6px; padding: 3px; border: 1px solid rgba(255,255,255,0.2);">
                     <button type="button" id="btnModeSlides" onclick="switchViewMode('slides')" class="btn btn-sm" style="background: #4f46e5; color: #fff; border: none; font-size: 0.8rem; font-weight: 600; padding: 4px 10px;">
@@ -96,13 +96,34 @@
 
     <!-- Viewer Body -->
     <div id="viewerContainer" style="background: #0f172a; position: relative;">
-        @if(!empty($presentationData['has_slides']))
-            <!-- REAL SLIDE PRESENTATION VIEW (Extracted directly from the real PPT/PDF file) -->
+        @if($material->isPdf())
+            <!-- Native In-Browser PDF Viewer for PDF files (Direct PDF Document without slide mode) -->
+            <div class="pdf-viewer-wrap" style="height: 750px; width: 100%; background: #525659;">
+                <object data="{{ route('student.materials.preview', $material) }}#toolbar=1&navpanes=1" type="application/pdf" width="100%" height="100%">
+                    <iframe src="{{ route('student.materials.preview', $material) }}#toolbar=1&navpanes=1" width="100%" height="100%" style="border: none; display: block;" title="{{ $material->title }}">
+                        <div style="padding: 3rem; text-align: center; color: #ffffff;">
+                            <p style="margin-bottom: 1rem; font-size: 1.1rem; font-weight: 600;">Dokumen PDF Materi Siap Dipelajari</p>
+                            <p style="margin-bottom: 1.5rem; color: #cbd5e1; font-size: 0.9rem;">Pratinjau langsung di dalam browser sedang dimuat atau perangkat Anda membutuhkan pembuka PDF eksternal.</p>
+                            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                                <a href="{{ route('student.materials.preview', $material) }}" target="_blank" class="btn btn-primary btn-lg" style="font-weight: 700;">
+                                    ↗ Buka PDF di Tab Baru
+                                </a>
+                                <a href="{{ route('student.materials.download', $material) }}" class="btn btn-warning btn-lg" style="font-weight: 700;">
+                                    ⬇ Unduh File PDF Materi
+                                </a>
+                            </div>
+                        </div>
+                    </iframe>
+                </object>
+            </div>
+
+        @elseif($material->isPpt() && !empty($presentationData['has_slides']))
+            <!-- Slide Presentation View (Extracted from PPT file) -->
             <div id="slideModeView" style="display: block;">
                 <!-- Sub-toolbar: Slide navigation controls -->
                 <div style="background: #1e293b; padding: 10px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span class="badge badge-warning" style="font-weight: 700; font-size: 0.82rem;">📊 Slide Dokumen Asli</span>
+                        <span class="badge badge-warning" style="font-weight: 700; font-size: 0.82rem;">📊 Slide Presentasi PPT</span>
                         <span style="font-size: 0.9rem; color: #cbd5e1;">
                             Slide <strong id="currentSlideNum" style="color: #60a5fa; font-size: 1.1rem;">1</strong> dari <strong>{{ $presentationData['total_slides'] }}</strong>
                         </span>
@@ -149,7 +170,7 @@
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <a href="{{ route('student.materials.download', $material) }}" class="btn btn-warning btn-sm" style="font-weight: 600;">
-                            ⬇ Unduh Berkas Asli ({{ strtoupper($material->file_type ?? 'FILE') }})
+                            ⬇ Unduh Berkas PPT Asli ({{ strtoupper($material->file_type ?? 'PPT') }})
                         </a>
                     </div>
                 </div>
@@ -166,30 +187,6 @@
                 </div>
             @endif
 
-        @elseif($material->file_path && $material->isPdf())
-            <!-- Native In-Browser PDF Viewer for PDF files -->
-            <div style="height: 750px; width: 100%; background: #525659;">
-                <object data="{{ route('student.materials.preview', $material) }}" type="application/pdf" width="100%" height="100%">
-                    <iframe src="{{ route('student.materials.preview', $material) }}#toolbar=1&navpanes=1" width="100%" height="100%" style="border: none; display: block;" title="{{ $material->title }}">
-                        <div style="padding: 3rem; text-align: center; color: #ffffff;">
-                            <p style="margin-bottom: 1rem;">Dokumen PDF materi siap dipelajari.</p>
-                            <a href="{{ route('student.materials.preview', $material) }}" target="_blank" class="btn btn-primary" style="margin-right: 8px;">
-                                ↗ Buka PDF di Tab Baru
-                            </a>
-                            <a href="{{ route('student.materials.download', $material) }}" class="btn btn-warning">
-                                Unduh File PDF Materi
-                            </a>
-                        </div>
-                    </iframe>
-                </object>
-            </div>
-
-        @elseif($material->file_path && $material->isImage())
-            <!-- Original Image Viewer -->
-            <div style="padding: 2rem; text-align: center; background: #0f172a; min-height: 450px; display: flex; align-items: center; justify-content: center;">
-                <img src="{{ route('student.materials.preview', $material) }}" alt="{{ $material->title }}" style="max-width: 100%; max-height: 720px; object-fit: contain; border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-            </div>
-
         @elseif($material->file_path && $material->isPpt())
             <!-- Standby fallback for PPT / PPTX file -->
             <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: #ffffff; padding: 4rem 2rem; text-align: center;">
@@ -197,12 +194,18 @@
                     <div style="font-size: 4rem; margin-bottom: 1rem;">📊</div>
                     <h2 style="font-size: 1.6rem; color: #ffffff; margin-bottom: 0.5rem;">{{ $material->file_name ?? $material->title }}</h2>
                     <p style="color: #cbd5e1; margin-bottom: 1.5rem; font-size: 0.95rem;">
-                        File presentasi PowerPoint telah siap. Anda dapat mengunduh berkas materi untuk membukanya langsung.
+                        File presentasi PowerPoint telah siap. Anda dapat mengunduh berkas materi untuk membukanya langsung di perangkat Anda.
                     </p>
                     <a href="{{ route('student.materials.download', $material) }}" class="btn btn-warning btn-lg" style="font-weight: 700;">
-                        ⬇ Unduh Berkas Presentasi PPTX
+                        ⬇ Unduh Berkas Presentasi PPT ({{ strtoupper($material->file_type ?? 'PPTX') }})
                     </a>
                 </div>
+            </div>
+
+        @elseif($material->file_path && $material->isImage())
+            <!-- Original Image Viewer -->
+            <div style="padding: 2rem; text-align: center; background: #0f172a; min-height: 450px; display: flex; align-items: center; justify-content: center;">
+                <img src="{{ route('student.materials.preview', $material) }}" alt="{{ $material->title }}" style="max-width: 100%; max-height: 720px; object-fit: contain; border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
             </div>
 
         @elseif($material->slide_url)
@@ -437,6 +440,10 @@ function toggleViewerFullscreen() {
     flex: 1;
     max-height: none !important;
     min-height: calc(100vh - 180px) !important;
+}
+#materialViewerCard:fullscreen .pdf-viewer-wrap {
+    height: 100% !important;
+    min-height: calc(100vh - 70px) !important;
 }
 #materialViewerCard:fullscreen .real-slide-item img {
     max-height: calc(100vh - 200px) !important;
