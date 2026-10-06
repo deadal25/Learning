@@ -334,6 +334,223 @@
     </div>
 @endif
 
+<!-- Section: Ulasan & Diskusi Pembelajaran Tiap Pertemuan -->
+<div class="card" id="meetingCommentsSection" style="margin-bottom: 2rem; box-shadow: var(--shadow-sm); border-radius: var(--radius-lg); border: 1px solid #e2e8f0; overflow: hidden;">
+    <div class="card-header" style="background: #ffffff; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span style="font-size: 1.25rem;">💬</span>
+                <h3 style="font-size: 1.2rem; margin: 0; font-weight: 800; color: #0f172a;">
+                    Ulasan & Diskusi Pembelajaran {{ $level->name }}
+                </h3>
+            </div>
+            <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
+                Refleksi dan ulasan materi khusus siswa <strong>Kelas {{ $studentClassGroup }}</strong> &bull; Guru pengajar dapat merespons ulasan Anda di sini.
+            </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            @if($averageRating)
+                <span class="badge" style="background: #fef3c7; color: #b45309; font-weight: 800; font-size: 0.85rem; padding: 6px 12px; display: inline-flex; align-items: center; gap: 4px;">
+                    ⭐ {{ round($averageRating, 1) }} / 5.0
+                </span>
+            @endif
+            <span class="badge" style="background: #eff6ff; color: #1e40af; font-weight: 700; font-size: 0.85rem; padding: 6px 12px;">
+                {{ $commentsCount }} Tanggapan
+            </span>
+        </div>
+    </div>
+
+    <div class="card-body" style="padding: 1.5rem;">
+        <!-- Form Kirim Ulasan / Komentar Baru -->
+        <form action="{{ route('student.materials.comments.store', $material) }}" method="POST" style="margin-bottom: 2rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem;">
+            @csrf
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
+                <div style="font-weight: 700; font-size: 0.92rem; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                    <span>✍️ Tulis Ulasan Pembelajaran Hari Ini:</span>
+                    <span class="badge badge-neutral" style="font-size: 0.74rem;">Kelas {{ auth()->user()->class_name ?: $studentClassGroup }}</span>
+                </div>
+                <!-- Interactive Star Rating Selection -->
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 0.8rem; color: #64748b; font-weight: 600;">Penilaian Anda:</span>
+                    <div style="display: inline-flex; gap: 4px;" id="starRatingContainer">
+                        @for($i = 1; $i <= 5; $i++)
+                            <label style="cursor: pointer; font-size: 1.3rem; margin: 0; line-height: 1;" title="{{ $i }} Bintang">
+                                <input type="radio" name="rating" value="{{ $i }}" {{ old('rating', 5) == $i ? 'checked' : '' }} style="display: none;" onchange="updateStarDisplay({{ $i }})">
+                                <span class="star-icon" id="star-icon-{{ $i }}" style="color: {{ old('rating', 5) >= $i ? '#f59e0b' : '#cbd5e1' }}; transition: color 0.15s;">★</span>
+                            </label>
+                        @endfor
+                    </div>
+                </div>
+            </div>
+
+            <textarea name="content" rows="3" class="form-control" placeholder="Ceritakan bagaimana pemahaman Anda tentang materi pertemuan hari ini, hal yang menarik, atau kendala yang dihadapi..." required style="width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px 14px; font-size: 0.9rem; resize: vertical; line-height: 1.5;">{{ old('content') }}</textarea>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
+                <span style="font-size: 0.76rem; color: #64748b; display: flex; align-items: center; gap: 4px;">
+                    🔒 Privasi: Hanya rekan siswa Kelas <strong>{{ $studentClassGroup }}</strong> dan Guru Pengajar yang dapat melihat ulasan ini.
+                </span>
+                <button type="submit" class="btn btn-primary" style="font-weight: 700; padding: 8px 18px; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <span>🚀 Kirim Ulasan</span>
+                </button>
+            </div>
+        </form>
+
+        <!-- Daftar Komentar & Ulasan -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            @forelse($meetingComments as $comment)
+                @php
+                    $isTeacherComment = $comment->user->isAdmin();
+                    $initial = strtoupper(substr($comment->user->name ?? 'U', 0, 1));
+                @endphp
+                <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; background: #ffffff; transition: box-shadow 0.2s;" id="comment-{{ $comment->id }}">
+                    <!-- Header Komentar -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 38px; height: 38px; border-radius: 50%; background: {{ $isTeacherComment ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.12);">
+                                {{ $initial }}
+                            </div>
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <span style="font-weight: 800; font-size: 0.92rem; color: #0f172a;">
+                                        {{ $comment->user->name }}
+                                    </span>
+                                    @if($isTeacherComment)
+                                        <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: 800; font-size: 0.72rem;">
+                                            👨‍🏫 Guru Pengajar
+                                        </span>
+                                    @else
+                                        <span class="badge" style="background: #eff6ff; color: #1e40af; font-size: 0.72rem; font-weight: 700;">
+                                            🎓 Kelas {{ $comment->class_name }}
+                                        </span>
+                                    @endif
+                                </div>
+                                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">
+                                    {{ $comment->created_at->diffForHumans() }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            @if($comment->rating)
+                                <div style="color: #f59e0b; font-size: 0.88rem; letter-spacing: 1px;" title="{{ $comment->rating }} dari 5 Bintang">
+                                    @for($r = 1; $r <= 5; $r++)
+                                        {{ $r <= $comment->rating ? '★' : '☆' }}
+                                    @endfor
+                                </div>
+                            @endif
+
+                            @if((int)$comment->user_id === (int)auth()->id())
+                                <form action="{{ route('student.materials.comments.destroy', $comment) }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus ulasan ini?');" style="margin: 0;">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm" style="background: none; border: none; color: #ef4444; font-size: 0.75rem; padding: 2px 6px; cursor: pointer;" title="Hapus ulasan">
+                                        🗑️
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
+                    </div>
+
+                    <!-- Isi Komentar -->
+                    <div style="font-size: 0.92rem; color: #334155; line-height: 1.6; white-space: pre-line; padding-left: 48px;">
+                        {{ $comment->content }}
+                    </div>
+
+                    <!-- Tombol Aksi: Balas -->
+                    <div style="padding-left: 48px; margin-top: 8px;">
+                        <button type="button" onclick="toggleReplyForm({{ $comment->id }})" style="background: none; border: none; color: #2563eb; font-weight: 700; font-size: 0.8rem; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 4px;">
+                            💬 Balas Komentar
+                        </button>
+                    </div>
+
+                    <!-- Inline Reply Form (Hidden by default) -->
+                    <div id="reply-form-{{ $comment->id }}" style="display: none; margin-top: 12px; margin-left: 48px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px;">
+                        <form action="{{ route('student.materials.comments.store', $material) }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="parent_id" value="{{ $comment->id }}">
+                            <div style="font-weight: 700; font-size: 0.82rem; color: #475569; margin-bottom: 6px;">
+                                Balas ulasan {{ $comment->user->name }}:
+                            </div>
+                            <textarea name="content" rows="2" class="form-control" placeholder="Tulis balasan Anda..." required style="width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; padding: 8px 12px; font-size: 0.86rem;"></textarea>
+                            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                                <button type="button" onclick="toggleReplyForm({{ $comment->id }})" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">
+                                    Batal
+                                </button>
+                                <button type="submit" class="btn btn-primary btn-sm" style="font-size: 0.78rem; font-weight: 700;">
+                                    Kirim Balasan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Balasan / Replies Thread -->
+                    @if($comment->replies->isNotEmpty())
+                        <div style="margin-left: 48px; margin-top: 14px; display: flex; flex-direction: column; gap: 10px;">
+                            @foreach($comment->replies as $reply)
+                                @php
+                                    $isTeacherReply = $reply->user->isAdmin();
+                                    $replyInitial = strtoupper(substr($reply->user->name ?? 'U', 0, 1));
+                                @endphp
+                                <div style="background: {{ $isTeacherReply ? '#f0fdf4' : '#f8fafc' }}; border: 1px solid {{ $isTeacherReply ? '#bbf7d0' : '#e2e8f0' }}; border-left: 3px solid {{ $isTeacherReply ? '#10b981' : '#6366f1' }}; border-radius: 8px; padding: 10px 14px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="width: 28px; height: 28px; border-radius: 50%; background: {{ $isTeacherReply ? '#10b981' : '#6366f1' }}; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.76rem; flex-shrink: 0;">
+                                                {{ $replyInitial }}
+                                            </div>
+                                            <div>
+                                                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                                    <span style="font-weight: 800; font-size: 0.85rem; color: #0f172a;">
+                                                        {{ $reply->user->name }}
+                                                    </span>
+                                                    @if($isTeacherReply)
+                                                        <span class="badge" style="background: #dcfce7; color: #166534; font-weight: 800; font-size: 0.7rem;">
+                                                            👨‍🏫 Guru Pengajar
+                                                        </span>
+                                                    @else
+                                                        <span class="badge badge-neutral" style="font-size: 0.68rem;">
+                                                            Kelas {{ $reply->class_name }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                <div style="font-size: 0.72rem; color: #94a3b8;">
+                                                    {{ $reply->created_at->diffForHumans() }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        @if((int)$reply->user_id === (int)auth()->id())
+                                            <form action="{{ route('student.materials.comments.destroy', $reply) }}" method="POST" onsubmit="return confirm('Hapus balasan ini?');" style="margin: 0;">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-sm" style="background: none; border: none; color: #ef4444; font-size: 0.72rem; padding: 0; cursor: pointer;">
+                                                    🗑️
+                                                </button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                    <div style="font-size: 0.88rem; color: #334155; line-height: 1.5; margin-top: 6px; padding-left: 36px; white-space: pre-line;">
+                                        {{ $reply->content }}
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @empty
+                <div style="padding: 2.5rem 1.5rem; text-align: center; color: var(--text-muted); background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                    <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">💬</div>
+                    <h4 style="font-weight: 700; color: #334155; margin-bottom: 4px; font-size: 1rem;">
+                        Belum ada ulasan untuk {{ $level->name }} di Kelas {{ $studentClassGroup }}
+                    </h4>
+                    <p style="font-size: 0.85rem; margin: 0; color: #64748b;">
+                        Jadilah siswa pertama yang membagikan ulasan atau pengalaman belajar untuk materi pertemuan ini!
+                    </p>
+                </div>
+            @endforelse
+        </div>
+    </div>
+</div>
+
 <!-- Ready to practice CTA banner -->
 <div class="card" style="background: linear-gradient(to right, #eff6ff, #f0fdf4); border: 1px solid #bfdbfe; margin-bottom: 2rem;">
     <div class="card-body" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.25rem; padding: 1.5rem;">
@@ -351,6 +568,21 @@
 
 @push('scripts')
 <script>
+function toggleReplyForm(id) {
+    const el = document.getElementById('reply-form-' + id);
+    if (!el) return;
+    el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+}
+
+function updateStarDisplay(rating) {
+    for (let i = 1; i <= 5; i++) {
+        const star = document.getElementById('star-icon-' + i);
+        if (star) {
+            star.style.color = (i <= rating) ? '#f59e0b' : '#cbd5e1';
+        }
+    }
+}
+
 let currentSlide = 1;
 const totalSlides = {{ $presentationData['total_slides'] ?? 0 }};
 

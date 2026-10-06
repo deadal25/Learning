@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\JapaneseTestController;
 use App\Http\Controllers\Admin\MeetingManagementController;
 use App\Http\Controllers\Student\JapaneseTestStudentController;
 use App\Http\Controllers\Student\StudentProfileController;
+use App\Http\Controllers\MeetingCommentController;
 use Illuminate\Support\Facades\Route;
 
 // Redirect root to login or dashboard
@@ -98,6 +99,8 @@ Route::middleware('auth')->group(function () {
         Route::post('materials/chunk-upload', [MaterialController::class, 'uploadChunk'])->name('materials.chunk-upload');
         Route::post('materials/{material}/reconvert', [MaterialController::class, 'reconvert'])->name('materials.reconvert');
         Route::post('materials/{material}/toggle-active', [MaterialController::class, 'toggleActive'])->name('materials.toggle-active');
+        Route::post('materials/{material}/comments', [MeetingCommentController::class, 'storeTeacher'])->name('materials.comments.store');
+        Route::delete('meeting-comments/{comment}', [MeetingCommentController::class, 'destroyTeacher'])->name('materials.comments.destroy');
 
         // Exercise Questions CRUD (10 per level)
         Route::resource('exercises', ExerciseController::class)->except(['show']);
@@ -153,6 +156,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/materials/{material}', [SubjectLearnController::class, 'viewMaterial'])->name('materials.view');
         Route::get('/materials/{material}/preview', [SubjectLearnController::class, 'previewMaterial'])->name('materials.preview');
         Route::get('/materials/{material}/download', [SubjectLearnController::class, 'downloadMaterial'])->name('materials.download');
+        Route::post('/materials/{material}/comments', [MeetingCommentController::class, 'storeStudent'])->name('materials.comments.store');
+        Route::delete('/meeting-comments/{comment}', [MeetingCommentController::class, 'destroyStudent'])->name('materials.comments.destroy');
 
         // Attendance History & Widget
         Route::get('/attendance', [AttendanceController::class, 'history'])->name('attendance.index');

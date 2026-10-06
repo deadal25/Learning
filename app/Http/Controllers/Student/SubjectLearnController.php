@@ -196,6 +196,25 @@ class SubjectLearnController extends Controller
             $exerciseCount = $jpTest->questions()->count();
         }
 
+        // Resolusi kelompok kelas siswa (Isolasi komentar per pertemuan & kelas)
+        $studentClassGroup = \App\Models\MeetingComment::resolveClassGroup(
+            $user->class_name ?: $material->class_name,
+            $level->subject_id
+        );
+
+        $meetingComments = \App\Models\MeetingComment::where('level_id', $level->id)
+            ->where('class_group', $studentClassGroup)
+            ->whereNull('parent_id')
+            ->with(['user', 'replies.user'])
+            ->latest()
+            ->get();
+
+        $commentsCount = \App\Models\MeetingComment::where('level_id', $level->id)
+            ->where('class_group', $studentClassGroup)
+            ->count();
+
+        $averageRating = $meetingComments->whereNotNull('rating')->avg('rating');
+
         return view('student.materials.view', compact(
             'material',
             'level',
@@ -204,7 +223,11 @@ class SubjectLearnController extends Controller
             'presentationData',
             'exerciseUrl',
             'exerciseCount',
-            'jpTest'
+            'jpTest',
+            'studentClassGroup',
+            'meetingComments',
+            'commentsCount',
+            'averageRating'
         ));
     }
 

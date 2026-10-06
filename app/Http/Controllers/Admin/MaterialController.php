@@ -316,7 +316,7 @@ class MaterialController extends Controller
         }
     }
 
-    public function show(Material $material): View
+    public function show(Material $material, Request $request): View
     {
         $this->authorizeMaterialAccess($material, 'melihat');
 
@@ -325,7 +325,43 @@ class MaterialController extends Controller
 
         $presentationData = \App\Services\DocumentConverterService::ensureConverted($material);
 
-        return view('admin.materials.show', compact('material', 'level', 'presentationData'));
+        $defaultClassGroup = \App\Models\MeetingComment::resolveClassGroup($material->class_name, $level->subject_id);
+        $selectedClassGroup = $request->input('class_group', $defaultClassGroup);
+
+        $commentsQuery = \App\Models\MeetingComment::where('level_id', $level->id)
+            ->whereNull('parent_id')
+            ->with(['user', 'replies.user'])
+            ->latest();
+
+        if ($selectedClassGroup !== 'all' && !empty($selectedClassGroup)) {
+            $commentsQuery->where('class_group', $selectedClassGroup);
+        }
+
+        $meetingComments = $commentsQuery->get();
+
+        $commentedGroups = \App\Models\MeetingComment::where('level_id', $level->id)
+            ->distinct()
+            ->pluck('class_group')
+            ->filter()
+            ->values();
+
+        if ((int)$level->subject_id === 1) {
+            $allClassGroups = collect(['B', 'E', 'I'])->merge($commentedGroups)->unique()->values();
+        } elseif ((int)$level->subject_id === 2) {
+            $allClassGroups = collect(range(1, 13))->map(fn($n) => "Grup{$n}")->merge($commentedGroups)->unique()->values();
+        } else {
+            $allClassGroups = $commentedGroups;
+        }
+
+        return view('admin.materials.show', compact(
+            'material',
+            'level',
+            'presentationData',
+            'meetingComments',
+            'selectedClassGroup',
+            'allClassGroups',
+            'defaultClassGroup'
+        ));
     }
 
     public function edit(Material $material): View

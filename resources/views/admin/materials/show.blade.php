@@ -307,8 +307,234 @@
     </div>
 @endif
 
+<!-- Section: Ulasan & Komentar Siswa per Pertemuan (Moderasi & Balasan Guru) -->
+<div class="card" id="meetingCommentsAdminSection" style="margin-bottom: 2rem; box-shadow: var(--shadow-sm); border-radius: var(--radius-lg); border: 1px solid #e2e8f0; overflow: hidden;">
+    <div class="card-header" style="background: #ffffff; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; gap: 12px;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span style="font-size: 1.25rem;">💬</span>
+                <h3 style="font-size: 1.2rem; margin: 0; font-weight: 800; color: #0f172a;">
+                    Ulasan & Komentar Siswa: {{ $level->name }}
+                </h3>
+            </div>
+            <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
+                Lihat refleksi pembelajaran siswa dan berikan tanggapan / balasan guru untuk kelas yang dipilih.
+            </p>
+        </div>
+
+        <!-- Filter Kelas untuk Guru -->
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <form action="{{ route('admin.materials.show', $material) }}" method="GET" style="display: flex; align-items: center; gap: 6px; margin: 0;">
+                <label for="class_group_filter" style="font-size: 0.8rem; font-weight: 700; color: #475569; margin: 0;">Filter Kelas:</label>
+                <select name="class_group" id="class_group_filter" class="form-select form-select-sm" onchange="this.form.submit()" style="font-size: 0.84rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #cbd5e1;">
+                    <option value="all" {{ $selectedClassGroup === 'all' ? 'selected' : '' }}>Semua Kelas</option>
+                    @foreach($allClassGroups as $grp)
+                        <option value="{{ $grp }}" {{ $selectedClassGroup === $grp ? 'selected' : '' }}>
+                            Kelas {{ $grp }}
+                        </option>
+                    @endforeach
+                </select>
+            </form>
+            <span class="badge" style="background: #eff6ff; color: #1e40af; font-weight: 700; font-size: 0.85rem; padding: 6px 12px;">
+                {{ $meetingComments->count() }} Ulasan
+            </span>
+        </div>
+    </div>
+
+    <div class="card-body" style="padding: 1.5rem;">
+        <!-- Form Balas / Kirim Pesan Pembuka Guru -->
+        <div style="margin-bottom: 2rem; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 1.25rem;">
+            <form action="{{ route('admin.materials.comments.store', $material) }}" method="POST">
+                @csrf
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
+                    <div style="font-weight: 800; font-size: 0.92rem; color: #065f46; display: flex; align-items: center; gap: 6px;">
+                        <span>👨‍🏫 Tambah Catatan / Pengumuman Diskusi Guru:</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 0.78rem; font-weight: 600; color: #047857;">Target Kelas:</span>
+                        <select name="target_class_group" class="form-select form-select-sm" style="font-size: 0.8rem; font-weight: 700; padding: 3px 8px; border-radius: 6px;">
+                            @foreach($allClassGroups as $grp)
+                                <option value="{{ $grp }}" {{ ($selectedClassGroup === $grp || $defaultClassGroup === $grp) ? 'selected' : '' }}>
+                                    Kelas {{ $grp }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                <textarea name="content" rows="2" class="form-control" placeholder="Tulis catatan, arahan, atau feedback guru untuk siswa pada pertemuan ini..." required style="width: 100%; border-radius: 8px; border: 1px solid #a7f3d0; padding: 8px 12px; font-size: 0.9rem;"></textarea>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                    <button type="submit" class="btn btn-success btn-sm" style="font-weight: 700; padding: 6px 16px;">
+                        💬 Kirim Catatan Guru
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Daftar Komentar Siswa -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            @forelse($meetingComments as $comment)
+                @php
+                    $isTeacherComment = $comment->user->isAdmin();
+                    $initial = strtoupper(substr($comment->user->name ?? 'U', 0, 1));
+                @endphp
+                <div style="border: 1px solid #e2e8f0; border-radius: 12px; padding: 1.25rem; background: #ffffff;" id="admin-comment-{{ $comment->id }}">
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 38px; height: 38px; border-radius: 50%; background: {{ $isTeacherComment ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem; flex-shrink: 0;">
+                                {{ $initial }}
+                            </div>
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <span style="font-weight: 800; font-size: 0.92rem; color: #0f172a;">
+                                        {{ $comment->user->name }}
+                                    </span>
+                                    @if($isTeacherComment)
+                                        <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: 800; font-size: 0.72rem;">
+                                            👨‍🏫 Guru Pengajar
+                                        </span>
+                                    @else
+                                        <span class="badge" style="background: #eff6ff; color: #1e40af; font-size: 0.72rem; font-weight: 700;">
+                                            🎓 Kelas {{ $comment->class_name }} (Grup {{ $comment->class_group }})
+                                        </span>
+                                    @endif
+                                </div>
+                                <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">
+                                    {{ $comment->created_at->diffForHumans() }} &bull; {{ $comment->created_at->format('d M Y, H:i') }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            @if($comment->rating)
+                                <div style="color: #f59e0b; font-size: 0.88rem; letter-spacing: 1px;" title="{{ $comment->rating }} Bintang">
+                                    @for($r = 1; $r <= 5; $r++)
+                                        {{ $r <= $comment->rating ? '★' : '☆' }}
+                                    @endfor
+                                </div>
+                            @endif
+
+                            <form action="{{ route('admin.materials.comments.destroy', $comment) }}" method="POST" onsubmit="return confirm('Hapus komentar ini?');" style="margin: 0;">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-sm" style="background: none; border: none; color: #ef4444; font-size: 0.82rem; padding: 2px 6px; cursor: pointer;" title="Moderasi: Hapus komentar ini">
+                                    🗑️
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Content -->
+                    <div style="font-size: 0.92rem; color: #334155; line-height: 1.6; white-space: pre-line; padding-left: 48px;">
+                        {{ $comment->content }}
+                    </div>
+
+                    <!-- Button: Balas sebagai Guru -->
+                    <div style="padding-left: 48px; margin-top: 8px;">
+                        <button type="button" onclick="toggleAdminReplyForm({{ $comment->id }})" style="background: none; border: none; color: #059669; font-weight: 700; font-size: 0.82rem; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 4px;">
+                            💬 Balas Sebagai Guru
+                        </button>
+                    </div>
+
+                    <!-- Inline Reply Form for Teacher -->
+                    <div id="admin-reply-form-{{ $comment->id }}" style="display: none; margin-top: 12px; margin-left: 48px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px;">
+                        <form action="{{ route('admin.materials.comments.store', $material) }}" method="POST">
+                            @csrf
+                            <input type="hidden" name="parent_id" value="{{ $comment->id }}">
+                            <div style="font-weight: 700; font-size: 0.82rem; color: #065f46; margin-bottom: 6px;">
+                                Balas ulasan {{ $comment->user->name }} (Siswa Kelas {{ $comment->class_name }}):
+                            </div>
+                            <textarea name="content" rows="2" class="form-control" placeholder="Tulis balasan penjelasan atau apresiasi untuk siswa ini..." required style="width: 100%; border-radius: 6px; border: 1px solid #86efac; padding: 8px 12px; font-size: 0.86rem;"></textarea>
+                            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
+                                <button type="button" onclick="toggleAdminReplyForm({{ $comment->id }})" class="btn btn-secondary btn-sm" style="font-size: 0.78rem;">
+                                    Batal
+                                </button>
+                                <button type="submit" class="btn btn-success btn-sm" style="font-size: 0.78rem; font-weight: 700;">
+                                    Kirim Balasan Guru
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Replies -->
+                    @if($comment->replies->isNotEmpty())
+                        <div style="margin-left: 48px; margin-top: 14px; display: flex; flex-direction: column; gap: 10px;">
+                            @foreach($comment->replies as $reply)
+                                @php
+                                    $isTeacherReply = $reply->user->isAdmin();
+                                    $replyInitial = strtoupper(substr($reply->user->name ?? 'U', 0, 1));
+                                @endphp
+                                <div style="background: {{ $isTeacherReply ? '#f0fdf4' : '#f8fafc' }}; border: 1px solid {{ $isTeacherReply ? '#bbf7d0' : '#e2e8f0' }}; border-left: 3px solid {{ $isTeacherReply ? '#10b981' : '#6366f1' }}; border-radius: 8px; padding: 10px 14px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div style="width: 28px; height: 28px; border-radius: 50%; background: {{ $isTeacherReply ? '#10b981' : '#6366f1' }}; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.76rem; flex-shrink: 0;">
+                                                {{ $replyInitial }}
+                                            </div>
+                                            <div>
+                                                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                                    <span style="font-weight: 800; font-size: 0.85rem; color: #0f172a;">
+                                                        {{ $reply->user->name }}
+                                                    </span>
+                                                    @if($isTeacherReply)
+                                                        <span class="badge" style="background: #dcfce7; color: #166534; font-weight: 800; font-size: 0.7rem;">
+                                                            👨‍🏫 Balasan Guru
+                                                        </span>
+                                                    @else
+                                                        <span class="badge badge-neutral" style="font-size: 0.68rem;">
+                                                            Kelas {{ $reply->class_name }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                <div style="font-size: 0.72rem; color: #94a3b8;">
+                                                    {{ $reply->created_at->diffForHumans() }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <form action="{{ route('admin.materials.comments.destroy', $reply) }}" method="POST" onsubmit="return confirm('Hapus balasan ini?');" style="margin: 0;">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="btn btn-sm" style="background: none; border: none; color: #ef4444; font-size: 0.72rem; padding: 0; cursor: pointer;" title="Hapus balasan">
+                                                🗑️
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <div style="font-size: 0.88rem; color: #334155; line-height: 1.5; margin-top: 6px; padding-left: 36px; white-space: pre-line;">
+                                        {{ $reply->content }}
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @empty
+                <div style="padding: 2.5rem 1.5rem; text-align: center; color: var(--text-muted); background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                    <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">💬</div>
+                    <h4 style="font-weight: 700; color: #334155; margin-bottom: 4px; font-size: 1rem;">
+                        Belum ada ulasan siswa untuk pertemuan ini
+                        @if($selectedClassGroup !== 'all')
+                            pada Kelas {{ $selectedClassGroup }}
+                        @endif
+                    </h4>
+                    <p style="font-size: 0.85rem; margin: 0; color: #64748b;">
+                        Ulasan dan pertanyaan yang dikirim siswa saat mempelajari materi akan muncul di sini.
+                    </p>
+                </div>
+            @endforelse
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
+function toggleAdminReplyForm(id) {
+    const el = document.getElementById('admin-reply-form-' + id);
+    if (!el) return;
+    el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+}
+
 let currentSlide = 1;
 const totalSlides = {{ $presentationData['total_slides'] ?? 0 }};
 
