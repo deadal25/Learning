@@ -325,32 +325,50 @@ class MaterialController extends Controller
 
         $presentationData = \App\Services\DocumentConverterService::ensureConverted($material);
 
-        $defaultClassGroup = \App\Models\MeetingComment::resolveClassGroup($material->class_name, $level->subject_id);
-        $selectedClassGroup = $request->input('class_group', $defaultClassGroup);
+        $isJapanese = (int)$level->subject_id === 2;
 
         $commentsQuery = \App\Models\MeetingComment::where('level_id', $level->id)
             ->whereNull('parent_id')
             ->with(['user', 'replies.user'])
             ->latest();
 
-        if ($selectedClassGroup !== 'all' && !empty($selectedClassGroup)) {
-            $commentsQuery->where('class_group', $selectedClassGroup);
-        }
+        if ($isJapanese) {
+            $defaultClassGroup = 'Semua Grup';
+            $selectedClassGroup = $request->input('class_group', 'all');
 
-        $meetingComments = $commentsQuery->get();
+            if ($selectedClassGroup !== 'all' && !empty($selectedClassGroup) && $selectedClassGroup !== 'Semua Grup') {
+                $commentsQuery->where(function ($q) use ($selectedClassGroup) {
+                    $q->where('class_name', $selectedClassGroup)
+                        ->orWhere('class_group', $selectedClassGroup);
+                });
+            }
 
-        $commentedGroups = \App\Models\MeetingComment::where('level_id', $level->id)
-            ->distinct()
-            ->pluck('class_group')
-            ->filter()
-            ->values();
+            $meetingComments = $commentsQuery->get();
 
-        if ((int)$level->subject_id === 1) {
-            $allClassGroups = collect(['B', 'E', 'I'])->merge($commentedGroups)->unique()->values();
-        } elseif ((int)$level->subject_id === 2) {
-            $allClassGroups = collect(range(1, 13))->map(fn($n) => "Grup{$n}")->merge($commentedGroups)->unique()->values();
+            $existingCommentGroups = \App\Models\MeetingComment::where('level_id', $level->id)
+                ->distinct()
+                ->pluck('class_name')
+                ->filter()
+                ->values();
+
+            $allClassGroups = collect(['Semua Grup'])->merge($existingCommentGroups)->unique()->values();
         } else {
-            $allClassGroups = $commentedGroups;
+            $defaultClassGroup = \App\Models\MeetingComment::resolveClassGroup($material->class_name, $level->subject_id);
+            $selectedClassGroup = $request->input('class_group', $defaultClassGroup);
+
+            if ($selectedClassGroup !== 'all' && !empty($selectedClassGroup)) {
+                $commentsQuery->where('class_group', $selectedClassGroup);
+            }
+
+            $meetingComments = $commentsQuery->get();
+
+            $commentedGroups = \App\Models\MeetingComment::where('level_id', $level->id)
+                ->distinct()
+                ->pluck('class_group')
+                ->filter()
+                ->values();
+
+            $allClassGroups = collect(['B', 'E', 'I'])->merge($commentedGroups)->unique()->values();
         }
 
         return view('admin.materials.show', compact(
@@ -360,7 +378,8 @@ class MaterialController extends Controller
             'meetingComments',
             'selectedClassGroup',
             'allClassGroups',
-            'defaultClassGroup'
+            'defaultClassGroup',
+            'isJapanese'
         ));
     }
 

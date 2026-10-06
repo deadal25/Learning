@@ -123,6 +123,7 @@ class MeetingCommentController extends Controller
         ]);
 
         $parentId = $validated['parent_id'] ?? null;
+        $isJapanese = (int)$level->subject_id === 2;
 
         if ($parentId) {
             $parent = MeetingComment::findOrFail($parentId);
@@ -132,33 +133,44 @@ class MeetingCommentController extends Controller
                 'material_id' => $material->id,
                 'user_id' => $user->id,
                 'subject_id' => $level->subject_id,
-                'class_name' => $parent->class_name,
+                'class_name' => $isJapanese ? 'Sensei' : ($parent->class_name ?: 'Guru Pengajar'),
                 'class_group' => $parent->class_group,
                 'parent_id' => $parent->id,
                 'content' => trim($validated['content']),
                 'rating' => null,
             ]);
 
-            return redirect()->back()->with('success', '👨‍🏫 Balasan guru berhasil dikirim!');
+            $successMsg = $isJapanese ? '🌸 Balasan Sensei berhasil dikirim!' : '👨‍🏫 Balasan guru berhasil dikirim!';
+            return redirect()->back()->with('success', $successMsg);
         }
 
-        $classGroup = !empty($validated['target_class_group'])
-            ? MeetingComment::resolveClassGroup($validated['target_class_group'], $level->subject_id)
-            : MeetingComment::resolveClassGroup($material->class_name, $level->subject_id);
+        $classGroup = $isJapanese
+            ? 'Semua Grup'
+            : (!empty($validated['target_class_group'])
+                ? MeetingComment::resolveClassGroup($validated['target_class_group'], $level->subject_id)
+                : MeetingComment::resolveClassGroup($material->class_name, $level->subject_id));
+
+        $className = $isJapanese
+            ? 'Sensei'
+            : ($material->class_name ?: 'Semua Kelas');
 
         MeetingComment::create([
             'level_id' => $level->id,
             'material_id' => $material->id,
             'user_id' => $user->id,
             'subject_id' => $level->subject_id,
-            'class_name' => $material->class_name ?: 'Semua Kelas',
+            'class_name' => $className,
             'class_group' => $classGroup,
             'parent_id' => null,
             'content' => trim($validated['content']),
             'rating' => null,
         ]);
 
-        return redirect()->back()->with('success', '👨‍🏫 Catatan/ulasan guru untuk ' . $level->name . ' berhasil dipublikasikan!');
+        $successMsg = $isJapanese
+            ? '🌸 Catatan Sensei untuk ' . $level->name . ' berhasil dipublikasikan untuk seluruh grup!'
+            : '👨‍🏫 Catatan/ulasan guru untuk ' . $level->name . ' berhasil dipublikasikan!';
+
+        return redirect()->back()->with('success', $successMsg);
     }
 
     /**

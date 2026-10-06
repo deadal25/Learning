@@ -311,27 +311,32 @@
 <div class="card" id="meetingCommentsAdminSection" style="margin-bottom: 2rem; box-shadow: var(--shadow-sm); border-radius: var(--radius-lg); border: 1px solid #e2e8f0; overflow: hidden;">
     <div class="card-header" style="background: #ffffff; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0; flex-wrap: wrap; gap: 12px;">
         <div>
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                <span style="font-size: 1.25rem;">💬</span>
+                   <span style="font-size: 1.25rem;">💬</span>
                 <h3 style="font-size: 1.2rem; margin: 0; font-weight: 800; color: #0f172a;">
-                    Ulasan & Komentar Siswa: {{ $level->name }}
+                    Ulasan & Komentar Siswa: {{ $level->name }} {{ $isJapanese ? '(Bahasa Jepang)' : '' }}
                 </h3>
             </div>
             <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
-                Lihat refleksi pembelajaran siswa dan berikan tanggapan / balasan guru untuk kelas yang dipilih.
+                @if($isJapanese)
+                    Diskusi ulasan terbuka untuk semua grup siswa (Grup 1 s/d 13). Sensei dapat melihat dan membalas langsung ulasan dari semua grup di sini.
+                @else
+                    Lihat refleksi pembelajaran siswa dan berikan tanggapan / balasan guru untuk kelas yang dipilih.
+                @endif
             </p>
         </div>
 
         <!-- Filter Kelas untuk Guru -->
         <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
             <form action="{{ route('admin.materials.show', $material) }}" method="GET" style="display: flex; align-items: center; gap: 6px; margin: 0;">
-                <label for="class_group_filter" style="font-size: 0.8rem; font-weight: 700; color: #475569; margin: 0;">Filter Kelas:</label>
+                <label for="class_group_filter" style="font-size: 0.8rem; font-weight: 700; color: #475569; margin: 0;">{{ $isJapanese ? 'Filter Grup:' : 'Filter Kelas:' }}</label>
                 <select name="class_group" id="class_group_filter" class="form-select form-select-sm" onchange="this.form.submit()" style="font-size: 0.84rem; font-weight: 700; padding: 4px 10px; border-radius: 6px; border: 1px solid #cbd5e1;">
-                    <option value="all" {{ $selectedClassGroup === 'all' ? 'selected' : '' }}>Semua Kelas</option>
+                    <option value="all" {{ $selectedClassGroup === 'all' ? 'selected' : '' }}>{{ $isJapanese ? 'Semua Grup Siswa' : 'Semua Kelas' }}</option>
                     @foreach($allClassGroups as $grp)
-                        <option value="{{ $grp }}" {{ $selectedClassGroup === $grp ? 'selected' : '' }}>
-                            Kelas {{ $grp }}
-                        </option>
+                        @if($grp !== 'Semua Grup')
+                            <option value="{{ $grp }}" {{ $selectedClassGroup === $grp ? 'selected' : '' }}>
+                                {{ $isJapanese ? $grp : 'Kelas ' . $grp }}
+                            </option>
+                        @endif
                     @endforeach
                 </select>
             </form>
@@ -348,25 +353,32 @@
                 @csrf
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
                     <div style="font-weight: 800; font-size: 0.92rem; color: #065f46; display: flex; align-items: center; gap: 6px;">
-                        <span>👨‍🏫 Tambah Catatan / Pengumuman Diskusi Guru:</span>
+                        <span>{{ $isJapanese ? '🌸 Tambah Catatan / Pengumuman Sensei:' : '👨‍🏫 Tambah Catatan / Pengumuman Diskusi Guru:' }}</span>
                     </div>
                     <div style="display: flex; align-items: center; gap: 6px;">
-                        <span style="font-size: 0.78rem; font-weight: 600; color: #047857;">Target Kelas:</span>
-                        <select name="target_class_group" class="form-select form-select-sm" style="font-size: 0.8rem; font-weight: 700; padding: 3px 8px; border-radius: 6px;">
-                            @foreach($allClassGroups as $grp)
-                                <option value="{{ $grp }}" {{ ($selectedClassGroup === $grp || $defaultClassGroup === $grp) ? 'selected' : '' }}>
-                                    Kelas {{ $grp }}
-                                </option>
-                            @endforeach
-                        </select>
+                        @if($isJapanese)
+                            <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: 800; font-size: 0.78rem;">
+                                Target: Seluruh Grup Siswa {{ $level->name }}
+                            </span>
+                            <input type="hidden" name="target_class_group" value="Semua Grup">
+                        @else
+                            <span style="font-size: 0.78rem; font-weight: 600; color: #047857;">Target Kelas:</span>
+                            <select name="target_class_group" class="form-select form-select-sm" style="font-size: 0.8rem; font-weight: 700; padding: 3px 8px; border-radius: 6px;">
+                                @foreach($allClassGroups as $grp)
+                                    <option value="{{ $grp }}" {{ ($selectedClassGroup === $grp || $defaultClassGroup === $grp) ? 'selected' : '' }}>
+                                        Kelas {{ $grp }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        @endif
                     </div>
                 </div>
 
-                <textarea name="content" rows="2" class="form-control" placeholder="Tulis catatan, arahan, atau feedback guru untuk siswa pada pertemuan ini..." required style="width: 100%; border-radius: 8px; border: 1px solid #a7f3d0; padding: 8px 12px; font-size: 0.9rem;"></textarea>
+                <textarea name="content" rows="2" class="form-control" placeholder="{{ $isJapanese ? 'Tulis catatan, arahan, atau motivasi Sensei untuk siswa pada pertemuan ini...' : 'Tulis catatan, arahan, atau feedback guru untuk siswa pada pertemuan ini...' }}" required style="width: 100%; border-radius: 8px; border: 1px solid #a7f3d0; padding: 8px 12px; font-size: 0.9rem;"></textarea>
 
                 <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
                     <button type="submit" class="btn btn-success btn-sm" style="font-weight: 700; padding: 6px 16px;">
-                        💬 Kirim Catatan Guru
+                        💬 {{ $isJapanese ? 'Kirim Catatan Sensei' : 'Kirim Catatan Guru' }}
                     </button>
                 </div>
             </form>
@@ -393,11 +405,11 @@
                                     </span>
                                     @if($isTeacherComment)
                                         <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: 800; font-size: 0.72rem;">
-                                            👨‍🏫 Guru Pengajar
+                                            👨‍🏫 {{ $isJapanese ? 'Sensei (Guru Bahasa Jepang)' : 'Guru Pengajar' }}
                                         </span>
                                     @else
                                         <span class="badge" style="background: #eff6ff; color: #1e40af; font-size: 0.72rem; font-weight: 700;">
-                                            🎓 Kelas {{ $comment->class_name }} (Grup {{ $comment->class_group }})
+                                            🎓 {{ $isJapanese ? ($comment->class_name ?: 'Siswa') : 'Kelas ' . $comment->class_name . ' (Grup ' . $comment->class_group . ')' }}
                                         </span>
                                     @endif
                                 </div>
@@ -431,10 +443,10 @@
                         {{ $comment->content }}
                     </div>
 
-                    <!-- Button: Balas sebagai Guru -->
+                    <!-- Button: Balas sebagai Guru / Sensei -->
                     <div style="padding-left: 48px; margin-top: 8px;">
                         <button type="button" onclick="toggleAdminReplyForm({{ $comment->id }})" style="background: none; border: none; color: #059669; font-weight: 700; font-size: 0.82rem; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 4px;">
-                            💬 Balas Sebagai Guru
+                            💬 {{ $isJapanese ? 'Balas Sebagai Sensei' : 'Balas Sebagai Guru' }}
                         </button>
                     </div>
 
@@ -444,7 +456,7 @@
                             @csrf
                             <input type="hidden" name="parent_id" value="{{ $comment->id }}">
                             <div style="font-weight: 700; font-size: 0.82rem; color: #065f46; margin-bottom: 6px;">
-                                Balas ulasan {{ $comment->user->name }} (Siswa Kelas {{ $comment->class_name }}):
+                                Balas ulasan {{ $comment->user->name }} ({{ $comment->class_name }}):
                             </div>
                             <textarea name="content" rows="2" class="form-control" placeholder="Tulis balasan penjelasan atau apresiasi untuk siswa ini..." required style="width: 100%; border-radius: 6px; border: 1px solid #86efac; padding: 8px 12px; font-size: 0.86rem;"></textarea>
                             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
@@ -452,7 +464,7 @@
                                     Batal
                                 </button>
                                 <button type="submit" class="btn btn-success btn-sm" style="font-size: 0.78rem; font-weight: 700;">
-                                    Kirim Balasan Guru
+                                    {{ $isJapanese ? 'Kirim Balasan Sensei' : 'Kirim Balasan Guru' }}
                                 </button>
                             </div>
                         </form>
@@ -479,11 +491,11 @@
                                                     </span>
                                                     @if($isTeacherReply)
                                                         <span class="badge" style="background: #dcfce7; color: #166534; font-weight: 800; font-size: 0.7rem;">
-                                                            👨‍🏫 Balasan Guru
+                                                            👨‍🏫 {{ $isJapanese ? 'Sensei (Guru Bahasa Jepang)' : 'Balasan Guru' }}
                                                         </span>
                                                     @else
                                                         <span class="badge badge-neutral" style="font-size: 0.68rem;">
-                                                            Kelas {{ $reply->class_name }}
+                                                            {{ $isJapanese ? ($reply->class_name ?: 'Siswa') : 'Kelas ' . $reply->class_name }}
                                                         </span>
                                                     @endif
                                                 </div>
@@ -514,7 +526,7 @@
                     <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">💬</div>
                     <h4 style="font-weight: 700; color: #334155; margin-bottom: 4px; font-size: 1rem;">
                         Belum ada ulasan siswa untuk pertemuan ini
-                        @if($selectedClassGroup !== 'all')
+                        @if(!$isJapanese && $selectedClassGroup !== 'all')
                             pada Kelas {{ $selectedClassGroup }}
                         @endif
                     </h4>

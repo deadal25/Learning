@@ -344,9 +344,15 @@
                     Ulasan & Diskusi Pembelajaran {{ $level->name }}
                 </h3>
             </div>
-            <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
-                Refleksi dan ulasan materi khusus siswa <strong>Kelas {{ $studentClassGroup }}</strong> &bull; Guru pengajar dapat merespons ulasan Anda di sini.
-            </p>
+            @if((int)$level->subject_id === 2)
+                <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
+                    Refleksi dan ulasan materi terbuka untuk <strong>seluruh grup siswa</strong> &bull; Sensei dapat merespons ulasan Anda di sini.
+                </p>
+            @else
+                <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
+                    Refleksi dan ulasan materi khusus siswa <strong>Kelas {{ $studentClassGroup }}</strong> &bull; Guru pengajar dapat merespons ulasan Anda di sini.
+                </p>
+            @endif
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
             @if($averageRating)
@@ -367,7 +373,11 @@
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px;">
                 <div style="font-weight: 700; font-size: 0.92rem; color: #1e293b; display: flex; align-items: center; gap: 6px;">
                     <span>✍️ Tulis Ulasan Pembelajaran Hari Ini:</span>
-                    <span class="badge badge-neutral" style="font-size: 0.74rem;">Kelas {{ auth()->user()->class_name ?: $studentClassGroup }}</span>
+                    @if((int)$level->subject_id === 2)
+                        <span class="badge badge-neutral" style="font-size: 0.74rem;">{{ auth()->user()->class_name ?: 'Siswa' }}</span>
+                    @else
+                        <span class="badge badge-neutral" style="font-size: 0.74rem;">Kelas {{ auth()->user()->class_name ?: $studentClassGroup }}</span>
+                    @endif
                 </div>
                 <!-- Interactive Star Rating Selection -->
                 <div style="display: flex; align-items: center; gap: 6px;">
@@ -386,9 +396,15 @@
             <textarea name="content" rows="3" class="form-control" placeholder="Ceritakan bagaimana pemahaman Anda tentang materi pertemuan hari ini, hal yang menarik, atau kendala yang dihadapi..." required style="width: 100%; border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px 14px; font-size: 0.9rem; resize: vertical; line-height: 1.5;">{{ old('content') }}</textarea>
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
-                <span style="font-size: 0.76rem; color: #64748b; display: flex; align-items: center; gap: 4px;">
-                    🔒 Privasi: Hanya rekan siswa Kelas <strong>{{ $studentClassGroup }}</strong> dan Guru Pengajar yang dapat melihat ulasan ini.
-                </span>
+                @if((int)$level->subject_id === 2)
+                    <span style="font-size: 0.76rem; color: #64748b; display: flex; align-items: center; gap: 4px;">
+                        🌸 Terbuka: Seluruh grup siswa Bahasa Jepang dan Sensei dapat berdiskusi pada ulasan {{ $level->name }}.
+                    </span>
+                @else
+                    <span style="font-size: 0.76rem; color: #64748b; display: flex; align-items: center; gap: 4px;">
+                        🔒 Privasi: Hanya rekan siswa Kelas <strong>{{ $studentClassGroup }}</strong> dan Guru Pengajar yang dapat melihat ulasan ini.
+                    </span>
+                @endif
                 <button type="submit" class="btn btn-primary" style="font-weight: 700; padding: 8px 18px; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px;">
                     <span>🚀 Kirim Ulasan</span>
                 </button>
@@ -416,11 +432,11 @@
                                     </span>
                                     @if($isTeacherComment)
                                         <span class="badge" style="background: #d1fae5; color: #065f46; font-weight: 800; font-size: 0.72rem;">
-                                            👨‍🏫 Guru Pengajar
+                                            👨‍🏫 {{ (int)$level->subject_id === 2 ? 'Sensei (Guru Bahasa Jepang)' : 'Guru Pengajar' }}
                                         </span>
                                     @else
                                         <span class="badge" style="background: #eff6ff; color: #1e40af; font-size: 0.72rem; font-weight: 700;">
-                                            🎓 Kelas {{ $comment->class_name }}
+                                            🎓 {{ (int)$level->subject_id === 2 ? ($comment->class_name ?: 'Siswa') : 'Kelas ' . $comment->class_name }}
                                         </span>
                                     @endif
                                 </div>
@@ -504,11 +520,11 @@
                                                     </span>
                                                     @if($isTeacherReply)
                                                         <span class="badge" style="background: #dcfce7; color: #166534; font-weight: 800; font-size: 0.7rem;">
-                                                            👨‍🏫 Guru Pengajar
+                                                            👨‍🏫 {{ (int)$level->subject_id === 2 ? 'Sensei (Guru Bahasa Jepang)' : 'Guru Pengajar' }}
                                                         </span>
                                                     @else
                                                         <span class="badge badge-neutral" style="font-size: 0.68rem;">
-                                                            Kelas {{ $reply->class_name }}
+                                                            {{ (int)$level->subject_id === 2 ? ($reply->class_name ?: 'Siswa') : 'Kelas ' . $reply->class_name }}
                                                         </span>
                                                     @endif
                                                 </div>
@@ -540,12 +556,15 @@
                 <div style="padding: 2.5rem 1.5rem; text-align: center; color: var(--text-muted); background: #f8fafc; border-radius: 12px; border: 1px dashed #cbd5e1;">
                     <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">💬</div>
                     <h4 style="font-weight: 700; color: #334155; margin-bottom: 4px; font-size: 1rem;">
-                        Belum ada ulasan untuk {{ $level->name }} di Kelas {{ $studentClassGroup }}
+                        @if((int)$level->subject_id === 2)
+                            Belum ada ulasan untuk {{ $level->name }}
+                        @else
+                            Belum ada ulasan untuk {{ $level->name }} di Kelas {{ $studentClassGroup }}
+                        @endif
                     </h4>
                     <p style="font-size: 0.85rem; margin: 0; color: #64748b;">
                         Jadilah siswa pertama yang membagikan ulasan atau pengalaman belajar untuk materi pertemuan ini!
                     </p>
-                </div>
             @endforelse
         </div>
     </div>

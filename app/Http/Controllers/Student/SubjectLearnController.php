@@ -196,23 +196,30 @@ class SubjectLearnController extends Controller
             $exerciseCount = $jpTest->questions()->count();
         }
 
-        // Resolusi kelompok kelas siswa (Isolasi komentar per pertemuan & kelas)
+        // Resolusi kelompok kelas siswa (Khusus Bahasa Jepang: Terbuka untuk semua grup; Bahasa Inggris: Isolasi kelas B, E, I)
+        $isJapanese = (int)$level->subject_id === 2;
         $studentClassGroup = \App\Models\MeetingComment::resolveClassGroup(
             $user->class_name ?: $material->class_name,
             $level->subject_id
         );
 
-        $meetingComments = \App\Models\MeetingComment::where('level_id', $level->id)
-            ->where('class_group', $studentClassGroup)
+        $commentsQuery = \App\Models\MeetingComment::where('level_id', $level->id)
             ->whereNull('parent_id')
             ->with(['user', 'replies.user'])
-            ->latest()
-            ->get();
+            ->latest();
 
-        $commentsCount = \App\Models\MeetingComment::where('level_id', $level->id)
-            ->where('class_group', $studentClassGroup)
-            ->count();
+        $commentsCountQuery = \App\Models\MeetingComment::where('level_id', $level->id);
 
+        if ($isJapanese) {
+            // Khusus Bahasa Jepang: Komentar langsung terbuka untuk seluruh grup siswa (Grup 1 s/d 13) pada pertemuan ini
+        } else {
+            // Bahasa Inggris: Berdasarkan kelas siswa (B, E, I)
+            $commentsQuery->where('class_group', $studentClassGroup);
+            $commentsCountQuery->where('class_group', $studentClassGroup);
+        }
+
+        $meetingComments = $commentsQuery->get();
+        $commentsCount = $commentsCountQuery->count();
         $averageRating = $meetingComments->whereNotNull('rating')->avg('rating');
 
         return view('student.materials.view', compact(
@@ -227,7 +234,8 @@ class SubjectLearnController extends Controller
             'studentClassGroup',
             'meetingComments',
             'commentsCount',
-            'averageRating'
+            'averageRating',
+            'isJapanese'
         ));
     }
 

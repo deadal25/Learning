@@ -68,23 +68,21 @@ class MeetingComment extends Model
     }
 
     /**
-     * Resolves the canonical class group key (e.g. 'B', 'E', 'I', 'Grup1', etc.)
+     * Resolves the canonical class group key (e.g. 'B', 'E', 'I', 'Semua Grup', etc.)
      */
     public static function resolveClassGroup(?string $className, ?int $subjectId = 1): string
     {
+        // Khusus mata pelajaran Bahasa Jepang (subject_id = 2) atau label kelompok 'grup':
+        // Seluruh grup siswa disatukan dalam satu forum terbuka per pertemuan
+        if ((int)$subjectId === 2 || (!empty($className) && stripos($className, 'grup') !== false)) {
+            return 'Semua Grup';
+        }
+
         if (empty($className)) {
             return 'General';
         }
 
         $clean = trim($className);
-
-        // Japanese subject (subject_id = 2) or explicit group pattern
-        if ((int)$subjectId === 2 || stripos($clean, 'grup') !== false) {
-            if (preg_match('/grup\s*(\d+)/i', $clean, $m)) {
-                return 'Grup' . $m[1];
-            }
-            return str_replace(' ', '', $clean);
-        }
 
         // English subject classes: B1..B8 -> B, E1 -> E, I1..I6 -> I
         if (preg_match('/(?:class|kelas|grup)?\s*([bie])\d*/i', $clean, $m)) {
