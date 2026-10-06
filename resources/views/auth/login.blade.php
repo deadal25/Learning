@@ -116,7 +116,7 @@
                     <!-- ============================================== -->
                     <div class="form-group" style="margin-bottom: 1.35rem; position: relative;">
                         <label class="form-label" style="font-weight: 700; color: #1e293b; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                            <span id="studentSelectLabel">2. Pilih Nama Peserta (Siswa)</span>
+                            <span id="studentSelectLabel">2. Pilih Nama Peserta</span>
                             <span style="font-size: 0.78rem; font-weight: 500; color: #64748b;">Ketik nama / NRP</span>
                         </label>
 
@@ -360,9 +360,9 @@
 @push('scripts')
 <script>
     const subjectMeta = {
-        1: { name: 'Bahasa Inggris' },
-        2: { name: 'Bahasa Jepang' },
-        3: { name: 'Matematika' }
+        1: { name: 'Bahasa Inggris', icon: '' },
+        2: { name: 'Bahasa Jepang', icon: '' },
+        3: { name: 'Matematika', icon: '' }
     };
 
     let selectedStudentSubjectId = null;
@@ -537,7 +537,7 @@
 
         const labelEl = document.getElementById('studentSelectLabel');
         if (labelEl) {
-            labelEl.innerText = '2. Pilih Nama Peserta (' + subjInfo.icon + ' ' + subjInfo.name + ')';
+            labelEl.innerText = '2. Pilih Nama Peserta';
         }
 
         const searchInput = document.getElementById('studentSearchInput');
