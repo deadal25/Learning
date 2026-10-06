@@ -330,7 +330,7 @@
                     <button type="submit" 
                             class="btn btn-primary" 
                             style="width: 100%; padding: 13px; font-size: 1rem; font-weight: 700; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                        <span>Masuk sebagai Pengajar / Admin</span>
+                        <span>Masuk sebagai Guru / Pengajar</span>
                         <span>&rarr;</span>
                     </button>
                 </form>
