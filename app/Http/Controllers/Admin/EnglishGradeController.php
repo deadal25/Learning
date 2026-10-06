@@ -242,12 +242,6 @@ class EnglishGradeController extends Controller
         $subjectId = $user->subject_id ?: 1;
         $subject = Subject::find($subjectId) ?? Subject::where('id', 1)->first();
 
-        // Get monthly grades & teacher feedback for this student
-        $monthlyGrades = EnglishGrade::where('student_id', $user->id)
-            ->with('teacher')
-            ->orderBy('week', 'asc')
-            ->get();
-
         // Get all levels for student's subject with exercises count
         $levels = Level::where('subject_id', $subjectId)
             ->withCount('exercises')
@@ -294,7 +288,6 @@ class EnglishGradeController extends Controller
         return view('student.grades.index', compact(
             'user',
             'subject',
-            'monthlyGrades',
             'levels',
             'statuses',
             'attempts',
