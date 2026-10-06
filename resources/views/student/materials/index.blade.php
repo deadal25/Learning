@@ -3,7 +3,7 @@
 @php
     $activeSubj = $currentSubject ?? (auth()->user()->subject ?: \App\Models\Subject::find(1));
     $subjName = $activeSubj?->name ?? 'Pembelajaran';
-    $classLabel = (auth()->user()->subject_id == 2 ? 'Grup: ' : 'Kelas: ') . (auth()->user()->class_name ?: 'Reguler');
+    $classLabel = (auth()->user()->subject_id == 2 ? '' : '') . (auth()->user()->class_name ?: 'Reguler');
 @endphp
 
 @section('title', 'Materi ' . $subjName . ' (' . $classLabel . ') - Musashi Learning')
