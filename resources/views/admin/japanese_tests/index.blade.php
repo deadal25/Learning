@@ -8,7 +8,7 @@
         <div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                 <span class="badge" style="background: #fdf2f8; color: #db2777; font-weight: 800;">
-                    🇯🇵 Guru / Admin Bahasa Jepang
+                    Guru Bahasa Jepang
                 </span>
                 <span class="badge badge-primary">
                     12 Pertemuan Belajar
