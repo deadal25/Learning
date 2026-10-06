@@ -126,7 +126,7 @@
                                    id="studentSearchInput" 
                                    class="form-control" 
                                    autocomplete="off"
-                                   placeholder="🔍 Ketik untuk mencari Nama atau NRP Anda..."
+                                   placeholder="Ketik untuk mencari Nama atau NRP Anda..."
                                    style="padding: 12px 14px 12px 38px; font-size: 0.95rem; border-radius: 10px; border: 1.5px solid #cbd5e1; font-weight: 500;"
                                    onfocus="openStudentDropdown()"
                                    oninput="filterStudents(this.value)">
@@ -542,7 +542,7 @@
 
         const searchInput = document.getElementById('studentSearchInput');
         if (searchInput) {
-            searchInput.placeholder = '🔍 Cari Nama / NRP Siswa ' + subjInfo.name + '...';
+            searchInput.placeholder = 'Cari Nama / NRP Siswa ' + subjInfo.name + '...';
         }
 
         // If previously selected student was from a different subject, reset choice
