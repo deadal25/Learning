@@ -260,7 +260,7 @@
                     <button type="button" 
                             onclick="switchLoginMode('staff')" 
                             style="background: none; border: none; color: #2563eb; font-size: 0.88rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; transition: all 0.2s;">
-                        <span>👨‍🏫 Masuk sebagai Guru Pengajar atau Admin &rarr;</span>
+                        <span>👨‍🏫 Masuk sebagai Guru/ Pengajar &rarr;</span>
                     </button>
                 </div>
             </div>
@@ -272,7 +272,7 @@
                 <div style="margin-bottom: 1.25rem; background: #eff6ff; border-radius: 10px; padding: 12px 14px; border: 1px solid #bfdbfe; display: flex; align-items: center; justify-content: space-between;">
                     <div>
                         <div style="font-size: 0.88rem; font-weight: 800; color: #1e40af;">
-                            Portal Akses Guru & Admin
+                            Portal Akses Guru / Pengajar
                         </div>
                         <div style="font-size: 0.78rem; color: #3b82f6;">
                             Guru Bahasa Inggris, Bahasa Jepang, Matematika & Super Admin
@@ -291,7 +291,7 @@
 
                     <div class="form-group" style="margin-bottom: 1.25rem;">
                         <label class="form-label" for="staff_email" style="font-weight: 700; color: #1e293b;">
-                            Email, Nomor Handphone, atau Nama Guru / Admin
+                            Email, Nomor Handphone, atau Nama Guru / Pengajar
                         </label>
                         <input type="text" 
                                name="email" 
@@ -584,7 +584,7 @@
         if (mode === 'staff') {
             studentSec.style.display = 'none';
             staffSec.style.display = 'block';
-            headerTitle.innerText = 'Portal Guru & Admin';
+            headerTitle.innerText = 'Portal Guru / Pengajar';
             headerSubtitle.innerText = 'Masuk menggunakan email, nomor handphone, atau nama pengajar/admin';
 
             if (tabStudent && tabStaff) {
