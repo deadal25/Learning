@@ -27,9 +27,6 @@
                 @else
                     Learning Musashi Guru Bahasa Inggris
                 @endif
-                @if(auth()->user()->class_code)
-                    &bull; {{ auth()->user()->class_code }}
-                @endif
             </div>
             <h1 style="font-size: 2rem; margin-bottom: 0.5rem; color: #fff;">Halo, {{ auth()->user()->name }}! 👋</h1>
             @if(auth()->user()->subject_id == 2)
