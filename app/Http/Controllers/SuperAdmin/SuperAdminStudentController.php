@@ -568,6 +568,9 @@ class SuperAdminStudentController extends Controller
      */
     public function importExcel(Request $request): RedirectResponse
     {
+        @set_time_limit(120);
+        @ini_set('memory_limit', '512M');
+
         $request->validate([
             'subject_id' => ['required', 'exists:subjects,id'],
             'teacher_id' => ['nullable', 'exists:users,id'],

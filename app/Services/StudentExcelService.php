@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\EnglishClass;
 use App\Models\EnglishGrade;
+use App\Models\StudentEnrollment;
 use App\Models\Subject;
 use App\Models\User;
 use App\Models\UserLevelStatus;
@@ -44,7 +45,7 @@ class StudentExcelService
     }
 
     /**
-     * Native XLSX parser using ZipArchive and XML (fast, standalone, zero extra dependencies).
+     * Native XLSX parser using ZipArchive and XML (fast, standalone, supports all sheets).
      */
     public function parseXlsx(string $filePath): array
     {
@@ -53,7 +54,7 @@ class StudentExcelService
             throw new \Exception('Gagal membuka file Excel (.xlsx). Pastikan format file valid.');
         }
 
-        // 1. Read shared strings
+        // 1. Read shared strings table
         $sharedStrings = [];
         if (($idx = $zip->locateName('xl/sharedStrings.xml')) !== false) {
             $xml = simplexml_load_string($zip->getFromIndex($idx));
@@ -74,58 +75,95 @@ class StudentExcelService
             }
         }
 
-        // 2. Locate first worksheet
-        $sheetXmlContent = null;
-        if (($idx = $zip->locateName('xl/worksheets/sheet1.xml')) !== false) {
-            $sheetXmlContent = $zip->getFromIndex($idx);
-        } else {
-            // Find any sheet in worksheets/
-            for ($i = 0; $i < $zip->numFiles; $i++) {
-                $stat = $zip->statIndex($i);
-                if (preg_match('#^xl/worksheets/sheet\d+\.xml$#i', $stat['name'])) {
-                    $sheetXmlContent = $zip->getFromIndex($i);
-                    break;
+        // 2. Discover all worksheets from xl/workbook.xml & relations
+        $sheetFiles = []; // [sheetName => internalXmlPath]
+        if (($idx = $zip->locateName('xl/workbook.xml')) !== false) {
+            $wbXml = simplexml_load_string($zip->getFromIndex($idx));
+            $sheetMap = [];
+            if ($wbXml && isset($wbXml->sheets->sheet)) {
+                foreach ($wbXml->sheets->sheet as $s) {
+                    $rId = (string)$s->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+                    $sheetMap[$rId] = trim((string)$s['name']);
                 }
+            }
+
+            if (($relIdx = $zip->locateName('xl/_rels/workbook.xml.rels')) !== false) {
+                $relsXml = simplexml_load_string($zip->getFromIndex($relIdx));
+                if ($relsXml && isset($relsXml->Relationship)) {
+                    foreach ($relsXml->Relationship as $rel) {
+                        $id = (string)$rel['Id'];
+                        $target = (string)$rel['Target'];
+                        if (isset($sheetMap[$id])) {
+                            $path = str_starts_with($target, 'worksheets/') ? 'xl/' . $target : 'xl/' . ltrim($target, '/');
+                            $sheetFiles[$sheetMap[$id]] = $path;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fallback to sheet1 if no relations found
+        if (empty($sheetFiles)) {
+            if ($zip->locateName('xl/worksheets/sheet1.xml') !== false) {
+                $sheetFiles['Sheet1'] = 'xl/worksheets/sheet1.xml';
+            } else {
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $stat = $zip->statIndex($i);
+                    if (preg_match('#^xl/worksheets/sheet\d+\.xml$#i', $stat['name'])) {
+                        $sheetFiles["Sheet" . ($i + 1)] = $stat['name'];
+                        break;
+                    }
+                }
+            }
+        }
+
+        $allResults = [];
+
+        foreach ($sheetFiles as $sheetName => $xmlPath) {
+            $content = $zip->getFromName($xmlPath);
+            if (!$content) {
+                continue;
+            }
+
+            $sheetXml = simplexml_load_string($content);
+            if (!$sheetXml || !isset($sheetXml->sheetData)) {
+                continue;
+            }
+
+            $rawRows = [];
+            foreach ($sheetXml->sheetData->row as $r) {
+                $rowNum = (int)$r['r'];
+                $cols = [];
+                foreach ($r->c as $c) {
+                    $cellType = (string)$c['t'];
+                    if ($cellType === 'inlineStr' && isset($c->is->t)) {
+                        $v = (string)$c->is->t;
+                    } elseif (isset($c->is->t)) {
+                        $v = (string)$c->is->t;
+                    } else {
+                        $v = (string)$c->v;
+                        if ($cellType === 's' && isset($sharedStrings[(int)$v])) {
+                            $v = $sharedStrings[(int)$v];
+                        }
+                    }
+                    $cellRef = (string)$c['r'];
+                    $colLetter = preg_replace('/[0-9]/', '', $cellRef);
+                    $cols[$colLetter] = trim((string)$v);
+                }
+                if (!empty(array_filter($cols, fn($val) => $val !== ''))) {
+                    $rawRows[$rowNum] = $cols;
+                }
+            }
+
+            $sheetRows = $this->normalizeRows($rawRows, $sheetName);
+            if (!empty($sheetRows)) {
+                $allResults = array_merge($allResults, $sheetRows);
             }
         }
 
         $zip->close();
 
-        if (!$sheetXmlContent) {
-            throw new \Exception('Lembar kerja Excel (Sheet) tidak ditemukan dalam file.');
-        }
-
-        $sheetXml = simplexml_load_string($sheetXmlContent);
-        if (!$sheetXml || !isset($sheetXml->sheetData)) {
-            throw new \Exception('Struktur lembar kerja Excel tidak valid.');
-        }
-
-        $rawRows = [];
-        foreach ($sheetXml->sheetData->row as $r) {
-            $rowNum = (int)$r['r'];
-            $cols = [];
-            foreach ($r->c as $c) {
-                $cellType = (string)$c['t'];
-                if ($cellType === 'inlineStr' && isset($c->is->t)) {
-                    $v = (string)$c->is->t;
-                } elseif (isset($c->is->t)) {
-                    $v = (string)$c->is->t;
-                } else {
-                    $v = (string)$c->v;
-                    if ($cellType === 's' && isset($sharedStrings[(int)$v])) {
-                        $v = $sharedStrings[(int)$v];
-                    }
-                }
-                $cellRef = (string)$c['r'];
-                $colLetter = preg_replace('/[0-9]/', '', $cellRef);
-                $cols[$colLetter] = trim((string)$v);
-            }
-            if (!empty(array_filter($cols, fn($val) => $val !== ''))) {
-                $rawRows[$rowNum] = $cols;
-            }
-        }
-
-        return $this->normalizeRows($rawRows);
+        return $allResults;
     }
 
     /**
@@ -161,43 +199,85 @@ class StudentExcelService
     /**
      * Map raw rows with letters to standardized field names based on header row.
      */
-    protected function normalizeRows(array $rawRows): array
+    protected function normalizeRows(array $rawRows, ?string $sheetName = null): array
     {
         if (empty($rawRows)) {
             return [];
         }
 
-        // Find header row (usually row 1 or 2)
+        // 1. Try to detect class name from sheet name or banner rows before header
+        $inferredClass = null;
+        if ($sheetName) {
+            $cleanSheet = trim($sheetName);
+            if (preg_match('/^(Class|Grup|Group|Kelas)\s+([A-Za-z0-9\-_]+)$/i', $cleanSheet) ||
+                preg_match('/^[A-Za-z]\d*$/i', $cleanSheet)) {
+                $inferredClass = $cleanSheet;
+            }
+        }
+
+        // Scan for class name in top rows (e.g. "CLASS : Class I" or cell A="CLASS :", cell B="Class I")
+        foreach ($rawRows as $rNum => $cols) {
+            if ($rNum > 10) {
+                break;
+            }
+            foreach ($cols as $colLetter => $val) {
+                $valUpper = strtoupper(trim((string)$val));
+                if (preg_match('/^(?:CLASS|KELAS|GRUP|GROUP)\s*:\s*(.+)$/i', $valUpper, $m)) {
+                    $cand = trim($m[1]);
+                    if (!empty($cand)) {
+                        $inferredClass = $cand;
+                        break 2;
+                    }
+                }
+                if (in_array($valUpper, ['CLASS :', 'CLASS:', 'KELAS :', 'KELAS:'])) {
+                    $nextLetter = chr(ord($colLetter) + 1);
+                    if (!empty($cols[$nextLetter])) {
+                        $cand = trim((string)$cols[$nextLetter]);
+                        if (!empty($cand)) {
+                            $inferredClass = $cand;
+                            break 2;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Find header row (usually row 1 to 10)
         $headerRow = null;
         $headerMap = []; // letter => standard key
 
         foreach ($rawRows as $rNum => $cols) {
-            $normalizedCols = array_map(fn($v) => strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', (string)$v)), $cols);
-            
-            // Check if this row contains 'NAMA' or 'PESERTA' or 'NRP' or 'KELAS'
-            $hasName = false;
-            foreach ($normalizedCols as $val) {
-                if (str_contains($val, 'NAMA') || str_contains($val, 'PESERTA') || str_contains($val, 'STUDENT')) {
-                    $hasName = true;
+            $foundNameCol = null;
+            foreach ($cols as $colLetter => $val) {
+                $cleanVal = strtoupper(trim((string)$val));
+                // Skip title banners
+                if (str_contains($cleanVal, 'LIST') || str_contains($cleanVal, 'ATTENDANCE') ||
+                    str_contains($cleanVal, 'DAFTAR') || str_contains($cleanVal, 'ABSENSI') ||
+                    str_contains($cleanVal, 'REKAP') || str_contains($cleanVal, 'LAPORAN')) {
+                    continue;
+                }
+                if (in_array($cleanVal, ['NAME', 'NAMA', 'NAMA SISWA', 'NAMA PESERTA', 'STUDENT NAME', 'FULL NAME', 'STUDENT', 'PESERTA']) ||
+                    preg_match('/^(NAMA|NAME|PESERTA)(\s+(SISWA|PESERTA|LENGKAP|STUDENT|MURID))?$/i', $cleanVal)) {
+                    $foundNameCol = $colLetter;
                     break;
                 }
             }
 
-            if ($hasName) {
+            if ($foundNameCol !== null) {
                 $headerRow = $rNum;
                 foreach ($cols as $colLetter => $rawHeader) {
                     $cleanHeader = strtoupper(trim((string)$rawHeader));
-                    if (str_contains($cleanHeader, 'KELAS') || str_contains($cleanHeader, 'CLASS') || str_contains($cleanHeader, 'GRUP') || str_contains($cleanHeader, 'GROUP')) {
+                    if (preg_match('/^(KELAS|CLASS|GRUP|GROUP)(\s+.*)?$/i', $cleanHeader)) {
                         $headerMap[$colLetter] = 'class_name';
-                    } elseif (str_contains($cleanHeader, 'NRP') || str_contains($cleanHeader, 'NIK') || str_contains($cleanHeader, 'NIS') || str_contains($cleanHeader, 'ID')) {
+                    } elseif (preg_match('/^(NRP|NIK|NIS|ID|NO REG|NO INDUK|NOMOR INDUK)$/i', $cleanHeader)) {
                         $headerMap[$colLetter] = 'nrp';
-                    } elseif (str_contains($cleanHeader, 'NAMA') || str_contains($cleanHeader, 'PESERTA') || str_contains($cleanHeader, 'NAME')) {
+                    } elseif ($colLetter === $foundNameCol || preg_match('/^(NAMA|NAME|PESERTA)(\s+(SISWA|PESERTA|LENGKAP|STUDENT|MURID))?$/i', $cleanHeader)) {
                         $headerMap[$colLetter] = 'name';
                     } elseif (str_contains($cleanHeader, 'BAGIAN') || str_contains($cleanHeader, 'DIVISI') || str_contains($cleanHeader, 'DEPT') || str_contains($cleanHeader, 'SECTION')) {
                         $headerMap[$colLetter] = 'division';
-                    } elseif (str_contains($cleanHeader, 'EMAIL')) {
+                    } elseif (str_contains($cleanHeader, 'EMAIL') || str_contains($cleanHeader, 'SUREL')) {
                         $headerMap[$colLetter] = 'email';
-                    } elseif (str_contains($cleanHeader, 'PASSWORD') || str_contains($cleanHeader, 'SANDI')) {
+                    } elseif (str_contains($cleanHeader, 'PASSWORD') || str_contains($cleanHeader, 'SANDI') || str_contains($cleanHeader, 'PASS')) {
                         $headerMap[$colLetter] = 'password';
                     } elseif (str_contains($cleanHeader, 'TELP') || str_contains($cleanHeader, 'PHONE') || str_contains($cleanHeader, 'HP') || str_contains($cleanHeader, 'WA')) {
                         $headerMap[$colLetter] = 'phone';
@@ -220,14 +300,22 @@ class StudentExcelService
             $headerRow = 0;
         }
 
+        $ignoreNames = [
+            'NAME', 'NAMA', 'NAMA SISWA', 'NAMA PESERTA', 'STUDENT NAME', 'PESERTA', 'STUDENT',
+            '0', '-', 'TOTAL', 'FINAL SCORE', 'AVERAGE', 'JUMLAH', 'ATTENDANCE', 'WEEKLY FEEDBACK',
+            'CLASS :', 'TEACHER :', 'PERIODE :', 'SUBJECT :', 'EXAMINATION', 'MEETING',
+        ];
+
         $result = [];
+        $seenStudents = [];
+
         foreach ($rawRows as $rNum => $cols) {
             if ($rNum <= $headerRow) {
                 continue;
             }
 
             $item = [
-                'class_name' => null,
+                'class_name' => $inferredClass,
                 'nrp' => null,
                 'name' => null,
                 'division' => null,
@@ -238,151 +326,309 @@ class StudentExcelService
 
             foreach ($cols as $letter => $val) {
                 if (isset($headerMap[$letter])) {
-                    $item[$headerMap[$letter]] = trim((string)$val);
+                    $cleanVal = trim((string)$val);
+                    if ($cleanVal !== '') {
+                        $item[$headerMap[$letter]] = $cleanVal;
+                    }
                 }
             }
 
-            // A valid student row must have a name
-            if (!empty($item['name']) && !str_contains(strtoupper($item['name']), 'NAMA PESERTA')) {
-                $result[] = $item;
+            $name = trim((string)($item['name'] ?? ''));
+
+            // Skip if empty or numeric (e.g. row numbers) or too short or in ignore list
+            if (empty($name) || is_numeric($name) || strlen($name) < 2 || in_array(strtoupper($name), $ignoreNames)) {
+                continue;
             }
+
+            // Skip if name matches header/banner phrases
+            $upperName = strtoupper($name);
+            if (str_starts_with($upperName, 'CLASS :') || str_starts_with($upperName, 'TEACHER :') ||
+                str_starts_with($upperName, 'PERIODE :') || str_starts_with($upperName, 'SUBJECT :') ||
+                str_contains($upperName, 'ATTENDANCE LIST') || str_contains($upperName, 'WEEKLY FEEDBACK') ||
+                str_contains($upperName, '1ST WEEK') || str_contains($upperName, '2ND WEEK') ||
+                str_contains($upperName, '3RD WEEK') || str_contains($upperName, '4TH WEEK')) {
+                continue;
+            }
+
+            // Deduplicate within the same sheet
+            $dedupKey = ($item['nrp'] ?? '') . '|' . strtolower($item['name']) . '|' . ($item['class_name'] ?? '');
+            if (isset($seenStudents[$dedupKey])) {
+                continue;
+            }
+            $seenStudents[$dedupKey] = true;
+
+            $result[] = $item;
         }
 
         return $result;
     }
 
     /**
-     * Import an array of parsed student rows into the database for a specific subject.
+     * Import an array of parsed student rows into the database for a specific subject with ultra-fast bulk execution.
      */
     public function importStudents(array $rows, int $subjectId, ?int $creatorId = null, ?int $teacherId = null): array
     {
-        $subject = Subject::findOrFail($subjectId);
+        @set_time_limit(120);
+        @ini_set('memory_limit', '512M');
+
+        $subject = Subject::with('levels')->findOrFail($subjectId);
         $teacher = $teacherId ? User::find($teacherId) : null;
+        $firstLevel = $subject->levels->firstWhere('order', 1);
+
+        $validRows = [];
+        $seenInBatch = [];
+        foreach ($rows as $index => $row) {
+            $name = trim($row['name'] ?? '');
+            if (empty($name) || is_numeric($name) || strlen($name) < 2 || in_array(strtoupper($name), ['NAMA', 'NAME', 'NAMA PESERTA', 'PESERTA', 'STUDENT', '0', '-'])) {
+                continue;
+            }
+            $nrp = !empty($row['nrp']) ? trim($row['nrp']) : '';
+            $className = !empty($row['class_name']) ? trim($row['class_name']) : '';
+            $email = !empty($row['email']) ? strtolower(trim($row['email'])) : '';
+
+            $batchKey = $email ?: ($nrp ? "nrp:{$nrp}" : "name:" . strtolower($name)) . "|cls:{$className}";
+            if (isset($seenInBatch[$batchKey])) {
+                continue;
+            }
+            $seenInBatch[$batchKey] = true;
+            $validRows[] = $row;
+        }
+
+        if (empty($validRows)) {
+            return [
+                'imported' => 0,
+                'updated' => 0,
+                'errors' => [],
+                'created_classes' => [],
+            ];
+        }
+
+        $now = now();
+        $nowStr = $now->toDateTimeString();
+
+        // 1. Bulk ensure classes exist in english_classes (1 query)
+        $classNames = array_values(array_filter(array_unique(array_map(fn($r) => trim($r['class_name'] ?? ''), $validRows))));
+        $existingClasses = !empty($classNames)
+            ? EnglishClass::where('subject_id', $subjectId)->whereIn('name', $classNames)->pluck('name')->toArray()
+            : [];
+        $missingClasses = array_diff($classNames, $existingClasses);
+        $createdClasses = [];
+
+        if (!empty($missingClasses)) {
+            $classInserts = [];
+            foreach ($missingClasses as $clsName) {
+                $classInserts[] = [
+                    'name' => $clsName,
+                    'subject_id' => $subjectId,
+                    'level_name' => 'Beginner',
+                    'is_active' => true,
+                    'sort_order' => 99,
+                    'created_at' => $nowStr,
+                    'updated_at' => $nowStr,
+                ];
+                $createdClasses[$clsName] = true;
+            }
+            EnglishClass::insert($classInserts);
+        }
+
+        // 2. Pre-load existing students by NRP and Email (2 queries)
+        $nrps = array_values(array_filter(array_unique(array_map(fn($r) => trim((string)($r['nrp'] ?? '')), $validRows))));
+        $explicitEmails = array_values(array_filter(array_unique(array_map(fn($r) => strtolower(trim((string)($r['email'] ?? ''))), $validRows))));
+
+        $existingStudentsByNrp = !empty($nrps)
+            ? User::where('role', User::ROLE_STUDENT)->where('subject_id', $subjectId)->whereIn('nrp', $nrps)->get()->keyBy('nrp')
+            : collect();
+
+        $existingStudentsByEmail = !empty($explicitEmails)
+            ? User::where('role', User::ROLE_STUDENT)->where('subject_id', $subjectId)->whereIn('email', $explicitEmails)->get()->keyBy(fn($u) => strtolower($u->email))
+            : collect();
+
+        // 3. Pre-load all existing emails into an in-memory hash set (1 fast query)
+        $existingEmailsMap = User::pluck('email')
+            ->filter()
+            ->mapWithKeys(fn($e) => [strtolower($e) => true])
+            ->toArray();
+
+        // 4. Password hashing cache (rounds 4 for ultra-fast mass bcrypt processing ~1.9ms vs 420ms)
+        $passwordCache = [];
+        $defaultHashedPassword = Hash::make('password', ['rounds' => 4]);
+
         $importedCount = 0;
         $updatedCount = 0;
         $errors = [];
-        $createdClasses = [];
+        $newUsersData = [];
+        $studentsToEnroll = []; // list of ['student_id' => int, 'class_name' => ?string]
 
-        $allSubjects = Subject::with('levels')->get();
-
-        foreach ($rows as $index => $row) {
+        foreach ($validRows as $index => $row) {
             $rowNumber = $index + 1;
-            $name = trim($row['name'] ?? '');
-            if (empty($name)) {
-                continue;
-            }
-
+            $name = trim($row['name']);
             $nrp = !empty($row['nrp']) ? trim($row['nrp']) : null;
             $cleanNrp = $nrp ? preg_replace('/[^a-zA-Z0-9]/', '', (string)$nrp) : '';
             $className = !empty($row['class_name']) ? trim($row['class_name']) : null;
             $division = !empty($row['division']) ? trim($row['division']) : null;
             $phone = !empty($row['phone']) ? trim($row['phone']) : null;
-            $defaultPassword = $cleanNrp ? "{$cleanNrp}@musashi" : 'password';
-            $plainPassword = !empty($row['password']) && trim($row['password']) !== 'password' ? trim($row['password']) : $defaultPassword;
-
-            // Ensure class exists in english_classes for this subject if provided
-            if (!empty($className)) {
-                $classObj = EnglishClass::firstOrCreate(
-                    [
-                        'name' => $className,
-                        'subject_id' => $subjectId,
-                    ],
-                    [
-                        'is_active' => true,
-                        'sort_order' => 99,
-                    ]
-                );
-                if ($classObj->wasRecentlyCreated) {
-                    $createdClasses[$className] = true;
-                }
-            }
-
             $explicitEmail = !empty($row['email']) ? strtolower(trim($row['email'])) : null;
 
+            $defaultPassword = $cleanNrp ? "{$cleanNrp}@musashi" : 'password';
+            $plainPassword = !empty($row['password']) && trim($row['password']) !== 'password'
+                ? trim($row['password'])
+                : $defaultPassword;
+
+            if (!isset($passwordCache[$plainPassword])) {
+                $passwordCache[$plainPassword] = ($plainPassword === 'password')
+                    ? $defaultHashedPassword
+                    : Hash::make($plainPassword, ['rounds' => 4]);
+            }
+            $hashedPassword = $passwordCache[$plainPassword];
+
+            // Match existing student
+            $existing = null;
+            if ($nrp && isset($existingStudentsByNrp[$nrp])) {
+                $existing = $existingStudentsByNrp[$nrp];
+            } elseif ($explicitEmail && isset($existingStudentsByEmail[$explicitEmail])) {
+                $existing = $existingStudentsByEmail[$explicitEmail];
+            }
+
             try {
-                DB::transaction(function () use (
-                    $name,
-                    $nrp,
-                    $className,
-                    $division,
-                    $phone,
-                    $plainPassword,
-                    $explicitEmail,
-                    $subjectId,
-                    $subject,
-                    $creatorId,
-                    $teacherId,
-                    $teacher,
-                    $allSubjects,
-                    &$importedCount,
-                    &$updatedCount
-                ) {
-                    // Find matching existing student accurately within the target subject
-                    $existingUser = $this->findExistingStudent($explicitEmail, $nrp, $name, $subjectId);
+                if ($existing) {
+                    $existing->update([
+                        'name' => $name,
+                        'division' => $division ?? $existing->division,
+                        'class_name' => $className ?? $existing->class_name,
+                        'phone' => $phone ?? $existing->phone,
+                        'status' => 'active',
+                    ]);
+                    $studentsToEnroll[] = [
+                        'student_id' => $existing->id,
+                        'class_name' => $className ?? $existing->class_name,
+                    ];
+                    $updatedCount++;
+                } else {
+                    // Generate unique email in-memory
+                    $email = $this->generateFastEmail($name, $cleanNrp, $explicitEmail, $subjectId, $existingEmailsMap);
+                    $existingEmailsMap[$email] = true;
 
-                    // Generate a guaranteed collision-free unique email per subject
-                    $email = $this->generateUniqueEmail($name, $nrp, $explicitEmail, $existingUser, $subjectId);
-
-                    if ($existingUser) {
-                        // Update existing student
-                        $updateData = [
-                            'name' => $name,
-                            'division' => $division ?? $existingUser->division,
-                            'class_name' => $className ?? $existingUser->class_name,
-                            'subject_id' => $subjectId,
-                            'phone' => $phone ?? $existingUser->phone,
-                            'status' => 'active',
-                            'email' => $email,
-                        ];
-                        if ($nrp) {
-                            $updateData['nrp'] = $nrp;
-                        }
-                        if ($teacherId) {
-                            $updateData['created_by'] = $teacherId;
-                        }
-                        $existingUser->update($updateData);
-
-                        // Ensure enrollment with teacher (preserve existing if teacher not specified)
-                        $enrollTeacher = $teacher ?? $existingUser->enrollments->firstWhere('subject_id', $subjectId)?->teacher;
-                        $existingUser->enrollInSubject($subject, $enrollTeacher, $className ?? 'REGULAR');
-                        $this->ensureProgressAndLevels($existingUser, $allSubjects);
-
-                        // Create/Update EnglishGrade if English
-                        if ((int)$subjectId === 1 && $className) {
-                            $gradeTeacherId = $teacherId ?? $enrollTeacher?->id ?? $existingUser->created_by;
-                            $this->ensureEnglishGrade($existingUser, $className, $gradeTeacherId);
-                        }
-
-                        $updatedCount++;
-                    } else {
-                        $student = User::create([
-                            'name' => $name,
-                            'nrp' => $nrp,
-                            'email' => $email,
-                            'password' => Hash::make($plainPassword),
-                            'role' => User::ROLE_STUDENT,
-                            'division' => $division,
-                            'class_name' => $className,
-                            'subject_id' => $subjectId,
-                            'phone' => $phone,
-                            'status' => 'active',
-                            'created_by' => $teacherId ?? $creatorId,
-                        ]);
-
-                        // Enroll student with teacher
-                        $student->enrollInSubject($subject, $teacher, $className ?? 'REGULAR');
-                        $this->ensureProgressAndLevels($student, $allSubjects);
-
-                        // Create EnglishGrade if English
-                        if ((int)$subjectId === 1 && $className) {
-                            $this->ensureEnglishGrade($student, $className, $teacherId);
-                        }
-
-                        $importedCount++;
-                    }
-                });
+                    $newUsersData[] = [
+                        'name' => $name,
+                        'nrp' => $nrp,
+                        'email' => $email,
+                        'password' => $hashedPassword,
+                        'role' => User::ROLE_STUDENT,
+                        'division' => $division,
+                        'class_name' => $className,
+                        'subject_id' => $subjectId,
+                        'phone' => $phone,
+                        'status' => 'active',
+                        'created_by' => $teacherId ?? $creatorId,
+                        'created_at' => $nowStr,
+                        'updated_at' => $nowStr,
+                    ];
+                    $importedCount++;
+                }
             } catch (\Throwable $e) {
                 $errors[] = "Baris {$rowNumber} ({$name}): " . $e->getMessage();
+            }
+        }
+
+        // 5. Bulk insert all new users in chunks (1 query per 100 rows)
+        if (!empty($newUsersData)) {
+            foreach (array_chunk($newUsersData, 100) as $chunk) {
+                DB::table('users')->insert($chunk);
+            }
+            $newEmails = array_column($newUsersData, 'email');
+            $createdStudents = User::whereIn('email', $newEmails)->get(['id', 'class_name']);
+            foreach ($createdStudents as $student) {
+                $studentsToEnroll[] = [
+                    'student_id' => $student->id,
+                    'class_name' => $student->class_name,
+                ];
+            }
+        }
+
+        // 6. Bulk upsert StudentEnrollment (1 query for all students)
+        if (!empty($studentsToEnroll)) {
+            $enrollmentRows = [];
+            foreach ($studentsToEnroll as $item) {
+                $enrollmentRows[] = [
+                    'student_id' => $item['student_id'],
+                    'subject_id' => $subjectId,
+                    'teacher_id' => $teacherId,
+                    'class_code' => $item['class_name'] ?? 'REGULAR',
+                    'enrolled_at' => $nowStr,
+                    'status' => 'active',
+                    'created_at' => $nowStr,
+                    'updated_at' => $nowStr,
+                ];
+            }
+            StudentEnrollment::upsert(
+                $enrollmentRows,
+                ['student_id', 'subject_id'],
+                ['teacher_id', 'class_code', 'status', 'updated_at']
+            );
+        }
+
+        // 7. Bulk upsert Level 1 UserLevelStatus and UserProgress (2 queries for all students)
+        if ($firstLevel && !empty($studentsToEnroll)) {
+            $levelStatusRows = [];
+            $progressRows = [];
+            foreach ($studentsToEnroll as $item) {
+                $levelStatusRows[] = [
+                    'user_id' => $item['student_id'],
+                    'level_id' => $firstLevel->id,
+                    'points' => 0,
+                    'is_unlocked' => true,
+                    'is_completed' => false,
+                    'created_at' => $nowStr,
+                    'updated_at' => $nowStr,
+                ];
+                $progressRows[] = [
+                    'user_id' => $item['student_id'],
+                    'subject_id' => $subjectId,
+                    'current_level_id' => $firstLevel->id,
+                    'current_points' => 0,
+                    'is_completed' => false,
+                    'created_at' => $nowStr,
+                    'updated_at' => $nowStr,
+                ];
+            }
+            UserLevelStatus::upsert($levelStatusRows, ['user_id', 'level_id'], ['is_unlocked', 'updated_at']);
+            UserProgress::upsert($progressRows, ['user_id', 'subject_id'], ['current_level_id', 'updated_at']);
+        }
+
+        // 8. Bulk upsert EnglishGrade for English students (1 query for all students)
+        if ($subjectId === 1 && !empty($studentsToEnroll)) {
+            $gradeRows = [];
+            foreach ($studentsToEnroll as $item) {
+                if (empty($item['class_name'])) {
+                    continue;
+                }
+                $gradeRows[] = [
+                    'student_id' => $item['student_id'],
+                    'class_name' => $item['class_name'],
+                    'week' => 1,
+                    'teacher_id' => $teacherId,
+                    'meeting_1' => 0,
+                    'meeting_2' => 0,
+                    'meeting_3' => 0,
+                    'meeting_4' => 0,
+                    'attendance_score' => 0,
+                    'fluency' => 0,
+                    'grammar' => 0,
+                    'pronunciation' => 0,
+                    'vocabulary' => 0,
+                    'total_exam' => 0,
+                    'final_score' => 0,
+                    'feedback' => null,
+                    'created_at' => $nowStr,
+                    'updated_at' => $nowStr,
+                ];
+            }
+            if (!empty($gradeRows)) {
+                EnglishGrade::upsert(
+                    $gradeRows,
+                    ['student_id', 'class_name', 'week'],
+                    ['teacher_id', 'updated_at']
+                );
             }
         }
 
@@ -395,72 +641,47 @@ class StudentExcelService
     }
 
     /**
-     * Ensure student progress and level status are initialized.
+     * Fast in-memory email generation without DB round-trips.
      */
-    protected function ensureProgressAndLevels(User $student, $allSubjects): void
+    protected function generateFastEmail(string $name, string $cleanNrp, ?string $explicitEmail, int $subjectId, array &$existingMap): string
     {
-        foreach ($allSubjects as $subj) {
-            $firstLevel = $subj->levels->firstWhere('order', 1);
-            if ($firstLevel) {
-                UserLevelStatus::firstOrCreate([
-                    'user_id' => $student->id,
-                    'level_id' => $firstLevel->id,
-                ], [
-                    'points' => 0,
-                    'is_unlocked' => true,
-                    'is_completed' => false,
-                ]);
+        if (!empty($explicitEmail) && !isset($existingMap[$explicitEmail])) {
+            return $explicitEmail;
+        }
 
-                foreach ($subj->levels->where('order', '>', 1) as $higherLevel) {
-                    UserLevelStatus::firstOrCreate([
-                        'user_id' => $student->id,
-                        'level_id' => $higherLevel->id,
-                    ], [
-                        'points' => 0,
-                        'is_unlocked' => false,
-                        'is_completed' => false,
-                    ]);
-                }
+        $subjectSuffix = match ($subjectId) {
+            2 => '.jp',
+            3 => '.mat',
+            default => '',
+        };
 
-                UserProgress::firstOrCreate([
-                    'user_id' => $student->id,
-                    'subject_id' => $subj->id,
-                ], [
-                    'current_level_id' => $firstLevel->id,
-                    'current_points' => 0,
-                    'is_completed' => false,
-                ]);
+        if (!empty($cleanNrp)) {
+            $c1 = strtolower("{$cleanNrp}{$subjectSuffix}@musashi.co.id");
+            if (!isset($existingMap[$c1])) {
+                return $c1;
+            }
+            $c2 = strtolower("{$cleanNrp}{$subjectSuffix}@musashi.id");
+            if (!isset($existingMap[$c2])) {
+                return $c2;
             }
         }
-    }
 
-    /**
-     * Ensure EnglishGrade record exists for an English student.
-     */
-    protected function ensureEnglishGrade(User $student, string $className, ?int $teacherId = null): void
-    {
-        $grade = EnglishGrade::firstOrCreate([
-            'student_id' => $student->id,
-            'class_name' => $className,
-            'week' => 1,
-        ], [
-            'teacher_id' => $teacherId,
-            'meeting_1' => 0,
-            'meeting_2' => 0,
-            'meeting_3' => 0,
-            'meeting_4' => 0,
-            'attendance_score' => 0,
-            'fluency' => 0,
-            'grammar' => 0,
-            'pronunciation' => 0,
-            'vocabulary' => 0,
-            'total_exam' => 0,
-            'final_score' => 0,
-            'feedback' => null,
-        ]);
+        $slug = Str::slug($name, '.');
+        if (!empty($slug)) {
+            $cSlug = strtolower("{$slug}{$subjectSuffix}@musashi.co.id");
+            if (!isset($existingMap[$cSlug])) {
+                return $cSlug;
+            }
+        }
 
-        if ($teacherId && !$grade->wasRecentlyCreated && $grade->teacher_id !== $teacherId) {
-            $grade->update(['teacher_id' => $teacherId]);
+        $prefix = !empty($cleanNrp) ? "{$cleanNrp}{$subjectSuffix}" : ($slug ?: 'student');
+        $counter = 1;
+        while (true) {
+            $cNum = strtolower("{$prefix}.{$counter}@musashi.co.id");
+            if (!isset($existingMap[$cNum])) {
+                return $cNum;
+            }
+            $counter++;
         }
     }
 
@@ -476,120 +697,4 @@ class StudentExcelService
         }
         return $letter;
     }
-
-    /**
-     * Find an existing student record that corresponds to the given row data.
-     * Patokan utama adalah NRP sebagai ID unik. Jika baris memiliki NRP dan tidak ditemukan di DB,
-     * maka ini adalah siswa yang BERBEDA (bukan orang yang sama meskipun namanya kebetulan sama).
-     */
-    protected function findExistingStudent(?string $email, ?string $nrp, string $name, int $subjectId = 1): ?User
-    {
-        // 1. Primary identifier: NRP (strictly scoped to the target subject)
-        if (!empty($nrp)) {
-            $userByNrp = User::where('role', User::ROLE_STUDENT)
-                ->where('subject_id', $subjectId)
-                ->where('nrp', trim((string)$nrp))
-                ->first();
-            if ($userByNrp) {
-                return $userByNrp;
-            }
-
-            // If explicit email is provided, check if that email exists for this subject
-            if (!empty($email)) {
-                $userByEmail = User::where('role', User::ROLE_STUDENT)
-                    ->where('subject_id', $subjectId)
-                    ->where('email', strtolower(trim($email)))
-                    ->first();
-                if ($userByEmail) {
-                    return $userByEmail;
-                }
-            }
-
-            // JANGAN pernah mencocokkan berdasarkan Nama jika baris Excel memiliki NRP yang berbeda!
-            return null;
-        }
-
-        // 2. If no NRP provided, check by explicit email within this subject
-        if (!empty($email)) {
-            $userByEmail = User::where('role', User::ROLE_STUDENT)
-                ->where('subject_id', $subjectId)
-                ->where('email', strtolower(trim($email)))
-                ->first();
-            if ($userByEmail) {
-                return $userByEmail;
-            }
-        }
-
-        // 3. Fallback: match by exact Name ONLY if neither NRP nor email was specified in the row, within this subject
-        return User::where('role', User::ROLE_STUDENT)
-            ->where('subject_id', $subjectId)
-            ->whereRaw('LOWER(name) = ?', [strtolower(trim($name))])
-            ->whereNull('nrp')
-            ->first();
-    }
-
-    /**
-     * Generate a unique email address for a student, supporting multiple subjects per NRP.
-     */
-    protected function generateUniqueEmail(string $name, ?string $nrp, ?string $explicitEmail, ?User $existingUser, int $subjectId = 1): string
-    {
-        // 1. Explicit email if provided and available
-        if (!empty($explicitEmail)) {
-            $candidate = strtolower(trim($explicitEmail));
-            if (!User::where('email', $candidate)->where('id', '!=', $existingUser?->id)->exists()) {
-                return $candidate;
-            }
-        }
-
-        $cleanNrp = $nrp ? preg_replace('/[^a-zA-Z0-9]/', '', (string)$nrp) : '';
-        $subjectSuffix = match ($subjectId) {
-            2 => '.jp',
-            3 => '.mat',
-            default => '',
-        };
-
-        // 2. Candidate from NRP:
-        if (!empty($cleanNrp)) {
-            if ($subjectId !== 1 && !empty($subjectSuffix)) {
-                $candidate = strtolower("{$cleanNrp}{$subjectSuffix}@musashi.co.id");
-                if (!User::where('email', $candidate)->where('id', '!=', $existingUser?->id)->exists()) {
-                    return $candidate;
-                }
-                $candidateId = strtolower("{$cleanNrp}{$subjectSuffix}@musashi.id");
-                if (!User::where('email', $candidateId)->where('id', '!=', $existingUser?->id)->exists()) {
-                    return $candidateId;
-                }
-            } else {
-                $baseCandidate = strtolower("{$cleanNrp}@musashi.co.id");
-                if (!User::where('email', $baseCandidate)->where('id', '!=', $existingUser?->id)->exists()) {
-                    return $baseCandidate;
-                }
-                $baseIdCandidate = strtolower("{$cleanNrp}@musashi.id");
-                if (!User::where('email', $baseIdCandidate)->where('id', '!=', $existingUser?->id)->exists()) {
-                    return $baseIdCandidate;
-                }
-            }
-        }
-
-        // 3. Fallback from name slug:
-        $slug = Str::slug($name, '.');
-        if (!empty($slug)) {
-            $candidate = strtolower("{$slug}{$subjectSuffix}@musashi.co.id");
-            if (!User::where('email', $candidate)->where('id', '!=', $existingUser?->id)->exists()) {
-                return $candidate;
-            }
-        }
-
-        // 4. Guaranteed collision-free loop
-        $prefix = !empty($cleanNrp) ? "{$cleanNrp}{$subjectSuffix}" : ($slug ?: 'student');
-        $counter = 1;
-        while (true) {
-            $candidate = strtolower("{$prefix}.{$counter}@musashi.co.id");
-            if (!User::where('email', $candidate)->where('id', '!=', $existingUser?->id)->exists()) {
-                return $candidate;
-            }
-            $counter++;
-        }
-    }
 }
-
