@@ -8,7 +8,7 @@
         <div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
                 <span class="badge" style="background: #fdf2f8; color: #db2777; font-weight: 800;">
-                    Kelas {{ auth()->user()->class_name ?: 'Bahasa Jepang' }}
+                    {{ auth()->user()->class_name ?: 'Bahasa Jepang' }}
                 </span>
                 <span class="badge badge-primary">
                     12 Pertemuan Belajar
