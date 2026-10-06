@@ -225,13 +225,28 @@ class EnglishGradeController extends Controller
     }
 
     /**
-     * Student view: View student's exercise score history (Riwayat Skor Latihan Soal).
+     * Student view: View student's grades, teacher feedback, and exercise score history.
      */
-    public function studentGrades(): View
+    public function studentGrades(): View|RedirectResponse
     {
         $user = Auth::user();
+        if (!$user) {
+            return redirect()->route('login');
+        }
+
+        // Japanese students use periodic evaluation tests & separate grade history
+        if ((int)$user->subject_id === 2) {
+            return redirect()->route('student.japanese.grades.index');
+        }
+
         $subjectId = $user->subject_id ?: 1;
         $subject = Subject::find($subjectId) ?? Subject::where('id', 1)->first();
+
+        // Get monthly grades & teacher feedback for this student
+        $monthlyGrades = EnglishGrade::where('student_id', $user->id)
+            ->with('teacher')
+            ->orderBy('week', 'asc')
+            ->get();
 
         // Get all levels for student's subject with exercises count
         $levels = Level::where('subject_id', $subjectId)
@@ -244,9 +259,14 @@ class EnglishGradeController extends Controller
             ->get()
             ->keyBy('level_id');
 
-        // Get student attempts grouped by level
+        // Get student attempts grouped by level (Postgres/MySQL/SQLite compatible boolean check)
         $attempts = ExerciseAttempt::where('user_id', $user->id)
-            ->select('level_id', DB::raw('count(*) as total_attempts'), DB::raw('sum(case when is_correct = 1 then 1 else 0 end) as correct_attempts'), DB::raw('max(updated_at) as last_attempt_at'))
+            ->select(
+                'level_id',
+                DB::raw('count(*) as total_attempts'),
+                DB::raw('sum(case when is_correct then 1 else 0 end) as correct_attempts'),
+                DB::raw('max(updated_at) as last_attempt_at')
+            )
             ->groupBy('level_id')
             ->get()
             ->keyBy('level_id');
@@ -274,6 +294,7 @@ class EnglishGradeController extends Controller
         return view('student.grades.index', compact(
             'user',
             'subject',
+            'monthlyGrades',
             'levels',
             'statuses',
             'attempts',
