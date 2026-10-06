@@ -107,7 +107,7 @@
                             </button>
                         </div>
                         <div id="subjectHelpText" style="font-size: 0.76rem; color: #64748b; margin-top: 6px;">
-                            💡 Daftar nama peserta di bawah akan otomatis disaring sesuai mata pelajaran yang Anda pilih di atas.
+                            Daftar nama peserta di bawah akan otomatis disaring sesuai mata pelajaran yang Anda pilih di atas.
                         </div>
                     </div>
 
