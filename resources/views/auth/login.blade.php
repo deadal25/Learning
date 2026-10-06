@@ -53,7 +53,7 @@
                         id="tabBtnStaff" 
                         onclick="switchLoginMode('staff')" 
                         style="padding: 10px 12px; border-radius: 9px; border: none; font-weight: 700; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: transparent; color: #64748b; transition: all 0.2s;">
-                    <span>👨‍🏫 Pengajar & Admin</span>
+                    <span>👨‍🏫 Guru / Pengajar</span>
                 </button>
             </div>
 
@@ -255,12 +255,12 @@
                     </button>
                 </form>
 
-                <!-- Tombol Beralih ke Login Staf / Guru -->
+                <!-- Tombol Beralih ke Login Pengajar / Guru -->
                 <div style="margin-top: 1.5rem; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 1.25rem;">
                     <button type="button" 
                             onclick="switchLoginMode('staff')" 
                             style="background: none; border: none; color: #2563eb; font-size: 0.88rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; transition: all 0.2s;">
-                        <span>👨‍🏫 Masuk sebagai Guru/ Pengajar &rarr;</span>
+                        <span>👨‍🏫 Masuk sebagai Guru / Pengajar &rarr;</span>
                     </button>
                 </div>
             </div>
