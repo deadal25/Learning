@@ -112,7 +112,12 @@ class StudentManagementController extends Controller
 
         $subjectId = $isTeacher ? $currentUser->subject_id : ($validated['subject_id'] ?? 1);
         $cleanNrp = !empty($validated['nrp']) ? preg_replace('/[^a-zA-Z0-9]/', '', $validated['nrp']) : '';
-        $plainPassword = !empty($validated['password']) ? $validated['password'] : ($cleanNrp ? "{$cleanNrp}@musashi" : 'password');
+        $defaultPassword = match((int)$subjectId) {
+            2 => ($cleanNrp ? "{$cleanNrp}@jpnmusashi" : 'password'),
+            3 => ($cleanNrp ? "{$cleanNrp}@mtkmusashi" : 'password'),
+            default => ($cleanNrp ? "{$cleanNrp}@musashi" : 'password'),
+        };
+        $plainPassword = !empty($validated['password']) ? $validated['password'] : $defaultPassword;
 
         DB::transaction(function () use ($validated, $currentUser, $isTeacher, $subjectId, $plainPassword) {
             $student = User::create([

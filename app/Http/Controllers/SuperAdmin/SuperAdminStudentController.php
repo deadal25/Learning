@@ -197,7 +197,11 @@ class SuperAdminStudentController extends Controller
         $name = trim($validated['name']);
         $nrp = !empty($validated['nrp']) ? trim($validated['nrp']) : null;
         $cleanNrp = $nrp ? preg_replace('/[^a-zA-Z0-9]/', '', $nrp) : '';
-        $defaultPassword = $cleanNrp ? "{$cleanNrp}@musashi" : 'password';
+        $defaultPassword = match($subjectId) {
+            2 => ($cleanNrp ? "{$cleanNrp}@jpnmusashi" : 'password'),
+            3 => ($cleanNrp ? "{$cleanNrp}@mtkmusashi" : 'password'),
+            default => ($cleanNrp ? "{$cleanNrp}@musashi" : 'password'),
+        };
         $plainPassword = !empty($validated['password']) ? trim($validated['password']) : $defaultPassword;
 
         $teacherId = (!empty($validated['teacher_id']) && $subjectId === 1) ? (int)$validated['teacher_id'] : null;

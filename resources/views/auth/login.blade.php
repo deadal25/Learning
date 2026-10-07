@@ -150,12 +150,23 @@
                              style="display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 260px; overflow-y: auto; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 10px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15); z-index: 1000; padding: 4px;">
                             @if(isset($students) && $students->isNotEmpty())
                                 @foreach($students as $st)
+                                    @php
+                                        $isEnglish = ((int)$st->subject_id === 1);
+                                        $rawNrp = $st->nrp ? trim((string)$st->nrp) : '';
+                                        if ($isEnglish && $rawNrp !== '') {
+                                            $nrpLen = strlen($rawNrp);
+                                            $displayNrp = ($nrpLen > 1) ? (str_repeat('*', $nrpLen - 1) . substr($rawNrp, -1)) : $rawNrp;
+                                        } else {
+                                            $displayNrp = $rawNrp ?: '-';
+                                        }
+                                    @endphp
                                     <div class="student-item" 
                                          onclick="selectStudent({{ $st->id }}, '{{ addslashes($st->name) }}', '{{ $st->nrp }}', '{{ $st->email }}', '{{ addslashes($st->class_name) }}', '{{ addslashes($st->division) }}', {{ $st->subject_id }})"
                                          data-id="{{ $st->id }}"
                                          data-subject-id="{{ $st->subject_id }}"
                                          data-name="{{ strtoupper($st->name) }}"
                                          data-nrp="{{ $st->nrp }}"
+                                         data-masked-nrp="{{ $displayNrp }}"
                                          data-class="{{ strtoupper($st->class_name) }}"
                                          data-division="{{ strtoupper($st->division) }}"
                                          style="padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: background 0.15s; border-bottom: 1px solid #f1f5f9;">
@@ -164,7 +175,7 @@
                                                 {{ $st->name }}
                                             </span>
                                             <span style="font-size: 0.76rem; font-weight: 800; background: #eff6ff; color: #1e40af; padding: 2px 7px; border-radius: 6px;">
-                                                NRP: {{ $st->nrp ?: '-' }}
+                                                NRP: {{ $displayNrp }}
                                             </span>
                                         </div>
                                         <div style="font-size: 0.78rem; color: #64748b; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
@@ -206,24 +217,30 @@
                                     <strong><span id="confClassLabel">Kelas:</span></strong> <span id="confClass" style="font-weight: 800; color: #047857;">-</span> |
                                     <strong>Bagian:</strong> <span id="confDiv">-</span>
                                 </div>
-                                <div style="margin-top: 8px; padding: 7px 10px; background: #dcfce7; border-radius: 6px; font-size: 0.82rem; color: #14532d; display: flex; align-items: center; gap: 6px;">
+                                <!-- Non-English: Tampilkan info kata sandi otomatis -->
+                                <div id="confPasswordAutoBox" style="margin-top: 8px; padding: 7px 10px; background: #dcfce7; border-radius: 6px; font-size: 0.82rem; color: #14532d; display: flex; align-items: center; gap: 6px;">
                                     <span>🔑</span>
                                     <span>Kata sandi Anda: <strong id="confPassword" style="font-family: monospace; font-size: 0.9rem;">-</strong> (otomatis terisi)</span>
+                                </div>
+                                <!-- English: Tampilkan info kata sandi rahasia / diinput manual -->
+                                <div id="confPasswordManualBox" style="display: none; margin-top: 8px; padding: 7px 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.82rem; color: #1e40af; display: flex; align-items: center; gap: 6px;">
+                                    <span>🔒</span>
+                                    <span>Kata sandi tidak terisi otomatis. Silakan masukkan kata sandi yang telah diberikan oleh pengajar pada kolom di bawah.</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- ============================================== -->
-                    <!-- LANGKAH 3: KATA SANDI (PASSWORD DEFAULT NRP@MUSASHI) -->
+                    <!-- LANGKAH 3: KATA SANDI (PASSWORD DEFAULT NRP@MUSASHI / MANUAL KHUSUS INGGRIS) -->
                     <!-- ============================================== -->
                     <div class="form-group" style="margin-bottom: 1.5rem;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                             <label class="form-label" for="password" style="font-weight: 700; color: #1e293b; margin: 0;">
                                 3. Kata Sandi (Password)
                             </label>
-                            <span id="passwordHintBadge" style="font-size: 0.76rem; color: #0284c7; font-weight: 700;">
-                                Pola: [NRP]@musashi
+                            <span id="passwordHintBadge" style="font-size: 0.76rem; color: #d97706; font-weight: 700;">
+                                🔒 Input manual
                             </span>
                         </div>
                         <div style="position: relative;">
@@ -232,7 +249,7 @@
                                    id="password" 
                                    class="form-control" 
                                    required 
-                                   placeholder="Contoh: 1367@musashi"
+                                   placeholder="Masukkan kata sandi yang telah diberikan..."
                                    style="padding: 12px 42px 12px 14px; font-size: 0.95rem; border-radius: 10px; border: 1.5px solid #cbd5e1;">
                             <button type="button" 
                                     onclick="togglePasswordVisibility('password', this)"
@@ -241,8 +258,8 @@
                                 👁️
                             </button>
                         </div>
-                        <div style="font-size: 0.76rem; color: #64748b; margin-top: 5px;">
-                            🔒 Kata sandi seluruh siswa diatur seragam: <strong>[NRP]@musashi</strong> (contoh: NRP <code>00001</code> &rarr; sandi <code>00001@musashi</code>, NRP <code>25698</code> &rarr; sandi <code>25698@musashi</code>).
+                        <div id="passwordHelpText" style="font-size: 0.76rem; color: #64748b; margin-top: 5px;">
+                            🔒 Khusus peserta Bahasa Inggris, kata sandi diberikan langsung oleh pengajar/panitia (tidak terisi otomatis demi keamanan).
                         </div>
                     </div>
 
@@ -275,7 +292,7 @@
                             Portal Akses Guru / Pengajar
                         </div>
                         <div style="font-size: 0.78rem; color: #3b82f6;">
-                            Guru Bahasa Inggris, Bahasa Jepang, Matematika & Super Admin
+                            Guru Bahasa Inggris, Bahasa Jepang, Matematika
                         </div>
                     </div>
                     <button type="button" 
@@ -389,6 +406,65 @@
         }
     });
 
+    function maskNrp(nrp) {
+        if (!nrp) return '-';
+        const s = String(nrp).trim();
+        if (s.length <= 1) return s || '-';
+        return '*'.repeat(s.length - 1) + s.slice(-1);
+    }
+
+    function updatePasswordSectionUI(subjId) {
+        const passwordInput = document.getElementById('password');
+        const passwordHintBadge = document.getElementById('passwordHintBadge');
+        const passwordHelpText = document.getElementById('passwordHelpText');
+
+        if (subjId === 1) {
+            if (passwordHintBadge) {
+                passwordHintBadge.innerText = '🔒 Input manual';
+                passwordHintBadge.style.color = '#d97706';
+            }
+            if (passwordInput) {
+                passwordInput.placeholder = 'Masukkan kata sandi yang telah diberikan...';
+            }
+            if (passwordHelpText) {
+                passwordHelpText.innerHTML = '🔒 Khusus peserta Bahasa Inggris, kata sandi diberikan langsung oleh pengajar/panitia (tidak terisi otomatis demi keamanan).';
+            }
+        } else if (subjId === 2) {
+            if (passwordHintBadge) {
+                passwordHintBadge.innerText = 'Pola: [NRP]@jpnmusashi';
+                passwordHintBadge.style.color = '#0284c7';
+            }
+            if (passwordInput) {
+                passwordInput.placeholder = 'Contoh: 112@jpnmusashi';
+            }
+            if (passwordHelpText) {
+                passwordHelpText.innerHTML = '🔒 Kata sandi peserta Bahasa Jepang: <strong>[NRP]@jpnmusashi</strong> (contoh: NRP <code>112</code> &rarr; sandi <code>112@jpnmusashi</code>). Otomatis terisi saat memilih nama.';
+            }
+        } else if (subjId === 3) {
+            if (passwordHintBadge) {
+                passwordHintBadge.innerText = 'Pola: [NRP]@mtkmusashi';
+                passwordHintBadge.style.color = '#0284c7';
+            }
+            if (passwordInput) {
+                passwordInput.placeholder = 'Contoh: 112@mtkmusashi';
+            }
+            if (passwordHelpText) {
+                passwordHelpText.innerHTML = '🔒 Kata sandi peserta Matematika: <strong>[NRP]@mtkmusashi</strong> (contoh: NRP <code>112</code> &rarr; sandi <code>112@mtkmusashi</code>). Otomatis terisi saat memilih nama.';
+            }
+        } else {
+            if (passwordHintBadge) {
+                passwordHintBadge.innerText = 'Pola: [NRP]@musashi';
+                passwordHintBadge.style.color = '#0284c7';
+            }
+            if (passwordInput) {
+                passwordInput.placeholder = 'Contoh: 1367@musashi';
+            }
+            if (passwordHelpText) {
+                passwordHelpText.innerHTML = '🔒 Kata sandi seluruh siswa diatur seragam: <strong>[NRP]@musashi</strong> (contoh: NRP <code>00001</code> &rarr; sandi <code>00001@musashi</code>, NRP <code>25698</code> &rarr; sandi <code>25698@musashi</code>).';
+            }
+        }
+    }
+
     function filterStudents(query) {
         const currentSubjId = parseInt(document.getElementById('subject_id').value) || 1;
         const filter = (query || '').toUpperCase().trim();
@@ -402,10 +478,11 @@
                 totalInSubject++;
                 const name = item.getAttribute('data-name') || '';
                 const nrp = item.getAttribute('data-nrp') || '';
+                const maskedNrp = item.getAttribute('data-masked-nrp') || '';
                 const className = item.getAttribute('data-class') || '';
                 const division = item.getAttribute('data-division') || '';
 
-                if (!filter || name.includes(filter) || nrp.includes(filter) || className.includes(filter) || division.includes(filter)) {
+                if (!filter || name.includes(filter) || nrp.includes(filter) || maskedNrp.includes(filter) || className.includes(filter) || division.includes(filter)) {
                     item.style.display = 'block';
                     visibleCount++;
                 } else {
@@ -439,6 +516,7 @@
 
     function selectStudent(id, name, nrp, email, className, division, subjectId) {
         selectedStudentSubjectId = parseInt(subjectId);
+        const isEnglish = (selectedStudentSubjectId === 1);
 
         // Set name in input
         document.getElementById('studentSearchInput').value = name;
@@ -446,22 +524,54 @@
         // Identifier is set to the exact student record ID!
         document.getElementById('student_identifier').value = id;
 
-        // Auto-fill Password according to user requirement: [NRP]@musashi
         const cleanNrp = nrp ? nrp.replace(/[^a-zA-Z0-9]/g, '') : '';
-        const studentPassword = cleanNrp ? `${cleanNrp}@musashi` : 'password';
+        let studentPassword = 'password';
+        if (cleanNrp) {
+            if (selectedStudentSubjectId === 2) {
+                studentPassword = `${cleanNrp}@jpnmusashi`;
+            } else if (selectedStudentSubjectId === 3) {
+                studentPassword = `${cleanNrp}@mtkmusashi`;
+            } else {
+                studentPassword = `${cleanNrp}@musashi`;
+            }
+        }
         const passwordInput = document.getElementById('password');
-        if (passwordInput) {
-            passwordInput.value = studentPassword;
-        }
-
         const passwordHintBadge = document.getElementById('passwordHintBadge');
-        if (passwordHintBadge) {
-            passwordHintBadge.innerText = 'Sandi: ' + studentPassword;
+        const confPasswordAutoBox = document.getElementById('confPasswordAutoBox');
+        const confPasswordManualBox = document.getElementById('confPasswordManualBox');
+
+        if (isEnglish) {
+            // KHUSUS BAHASA INGGRIS: Tidak otomatis mengisi password!
+            if (passwordInput) {
+                passwordInput.value = '';
+                passwordInput.placeholder = 'Masukkan kata sandi yang telah diberikan...';
+                setTimeout(() => passwordInput.focus(), 150);
+            }
+            if (passwordHintBadge) {
+                passwordHintBadge.innerText = '🔒 Input manual';
+                passwordHintBadge.style.color = '#d97706';
+            }
+            if (confPasswordAutoBox) confPasswordAutoBox.style.display = 'none';
+            if (confPasswordManualBox) confPasswordManualBox.style.display = 'flex';
+        } else {
+            // Bahasa Jepang & Matematika: Otomatis mengisi password
+            if (passwordInput) {
+                passwordInput.value = studentPassword;
+                passwordInput.placeholder = 'Contoh: ' + studentPassword;
+            }
+            if (passwordHintBadge) {
+                passwordHintBadge.innerText = 'Sandi: ' + studentPassword;
+                passwordHintBadge.style.color = '#0284c7';
+            }
+            const confPassword = document.getElementById('confPassword');
+            if (confPassword) confPassword.innerText = studentPassword;
+            if (confPasswordAutoBox) confPasswordAutoBox.style.display = 'flex';
+            if (confPasswordManualBox) confPasswordManualBox.style.display = 'none';
         }
 
-        // Show confirmation badge
+        // Show confirmation badge with masked NRP for English students
         document.getElementById('confName').innerText = name;
-        document.getElementById('confNrp').innerText = nrp || '-';
+        document.getElementById('confNrp').innerText = isEnglish ? maskNrp(nrp) : (nrp || '-');
         document.getElementById('confClass').innerText = className || 'Reguler';
         document.getElementById('confClassLabel').innerText = (selectedStudentSubjectId === 2 ? 'Grup:' : 'Kelas:');
         document.getElementById('confDiv').innerText = division || '-';
@@ -470,7 +580,6 @@
         const subjName = subjInfo ? subjInfo.name : '-';
         document.getElementById('confSubject').innerText = subjName;
         document.getElementById('confSubjectBadge').innerText = subjName.toUpperCase();
-        document.getElementById('confPassword').innerText = studentPassword;
 
         document.getElementById('selectedStudentConfirmation').style.display = 'block';
 
@@ -490,10 +599,8 @@
             passwordInput.value = '';
         }
 
-        const passwordHintBadge = document.getElementById('passwordHintBadge');
-        if (passwordHintBadge) {
-            passwordHintBadge.innerText = 'Pola: [NRP]@musashi';
-        }
+        const curSubjId = parseInt(document.getElementById('subject_id').value) || 1;
+        updatePasswordSectionUI(curSubjId);
 
         selectedStudentSubjectId = null;
 
@@ -544,6 +651,9 @@
         if (searchInput) {
             searchInput.placeholder = 'Cari Nama / NRP Siswa ' + subjInfo.name + '...';
         }
+
+        // Update password section UI according to subject
+        updatePasswordSectionUI(id);
 
         // If previously selected student was from a different subject, reset choice
         if (selectedStudentSubjectId && selectedStudentSubjectId !== id) {

@@ -264,21 +264,39 @@ class AuthController extends Controller
         }
 
         $cleanNrp = $student->nrp ? preg_replace('/[^a-zA-Z0-9]/', '', $student->nrp) : '';
+
+        $expectedSubjectPattern = match ($chosenSubjectId) {
+            2 => ($cleanNrp ? "{$cleanNrp}@jpnmusashi" : 'password'),
+            3 => ($cleanNrp ? "{$cleanNrp}@mtkmusashi" : 'password'),
+            default => ($cleanNrp ? "{$cleanNrp}@musashi" : 'password'),
+        };
+
         $isPasswordValid = Hash::check($password, $student->password)
+            || ($cleanNrp && $password === $expectedSubjectPattern)
             || ($cleanNrp && ($password === "{$cleanNrp}@musashi" || $password === "{$cleanNrp}@gmail"))
             || ($student->nrp && ($password === "{$student->nrp}@musashi" || $password === "{$student->nrp}@gmail"))
             || ($password === 'password');
 
         if (!$isPasswordValid) {
-            $expectedHint = $cleanNrp ? "{$cleanNrp}@musashi" : "password";
+            $isEnglishSubject = ($chosenSubjectId === 1 
+                || str_contains(strtolower($chosenSubject->name ?? ''), 'inggris')
+                || strtolower($chosenSubject->slug ?? '') === 'bahasa-inggris');
+
+            if ($isEnglishSubject) {
+                return back()->withErrors([
+                    'password' => 'Kata sandi tidak sesuai. Silakan periksa kembali kata sandi yang telah diberikan oleh pengajar.',
+                ])->withInput($request->except('password'));
+            }
+
+            $expectedHint = $cleanNrp ? $expectedSubjectPattern : "password";
             return back()->withErrors([
                 'password' => "Kata sandi salah. Format sandi peserta: {$expectedHint}.",
             ])->withInput($request->except('password'));
         }
 
-        // Keep hash updated if authenticated via NRP pattern
-        if (!Hash::check($password, $student->password) && $cleanNrp && ($password === "{$cleanNrp}@musashi" || $password === "{$cleanNrp}@gmail")) {
-            $student->update(['password' => Hash::make("{$cleanNrp}@musashi")]);
+        // Keep hash updated if authenticated via expected subject NRP pattern
+        if (!Hash::check($password, $student->password) && $cleanNrp && ($password === $expectedSubjectPattern || $password === "{$cleanNrp}@musashi" || $password === "{$cleanNrp}@gmail")) {
+            $student->update(['password' => Hash::make($expectedSubjectPattern)]);
         }
 
         if ($student->status !== 'active') {

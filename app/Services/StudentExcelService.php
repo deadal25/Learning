@@ -469,7 +469,11 @@ class StudentExcelService
             $phone = !empty($row['phone']) ? trim($row['phone']) : null;
             $explicitEmail = !empty($row['email']) ? strtolower(trim($row['email'])) : null;
 
-            $defaultPassword = $cleanNrp ? "{$cleanNrp}@musashi" : 'password';
+            $defaultPassword = match((int)$subjectId) {
+                2 => ($cleanNrp ? "{$cleanNrp}@jpnmusashi" : 'password'),
+                3 => ($cleanNrp ? "{$cleanNrp}@mtkmusashi" : 'password'),
+                default => ($cleanNrp ? "{$cleanNrp}@musashi" : 'password'),
+            };
             $plainPassword = !empty($row['password']) && trim($row['password']) !== 'password'
                 ? trim($row['password'])
                 : $defaultPassword;
