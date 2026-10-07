@@ -82,7 +82,7 @@ a:hover {
 /* Layout Utilities */
 .container {
   width: 100%;
-  max-width: 1280px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
@@ -847,5 +847,568 @@ nav[role="navigation"] svg,
     display: none;
   }
 }
+
+/* ==========================================================================
+   COMPREHENSIVE RESPONSIVE DESIGN SYSTEM (ALL DEVICES & ALL ROLES)
+   Supports:
+   - iPhone SE (320px - 375px)
+   - iPhone 16 (393px)
+   - iPhone 16 Pro Max (430px)
+   - Tablet / iPad (768px - 1024px)
+   - Laptop Layar Kecil (1200px - 1366px)
+   - Komputer Layar Besar (1440px - 1920px+)
+   - Siswa, Guru / Pengajar, Super Admin, Login / Register
+   ========================================================================== */
+
+/* 1. Global Viewport & Mobile Safe-Area */
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* 2. Fluid Typography Scaling */
+h1 { font-size: clamp(1.4rem, 4vw, 2.2rem); }
+h2 { font-size: clamp(1.2rem, 3.2vw, 1.75rem); }
+h3 { font-size: clamp(1.05rem, 2.5vw, 1.35rem); }
+
+/* 3. Mobile Navigation Header & Toggle Button */
+.desktop-nav {
+  display: flex;
+}
+
+.mobile-nav-toggle-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  width: 42px;
+  height: 42px;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 101;
+}
+
+.mobile-nav-toggle-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.hamburger-line {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background-color: #334155;
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.mobile-nav-toggle-btn.active .hamburger-line:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.mobile-nav-toggle-btn.active .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-nav-toggle-btn.active .hamburger-line:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* 4. Mobile Navigation Drawer & Backdrop */
+.mobile-nav-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 9998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mobile-nav-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mobile-nav-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(340px, 86vw);
+  background: #ffffff;
+  box-shadow: -10px 0 35px -5px rgba(0, 0, 0, 0.25);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(105%);
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 1.5rem));
+}
+
+.mobile-nav-drawer.open {
+  transform: translateX(0);
+}
+
+.mobile-drawer-header {
+  padding: 1.25rem 1.25rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f1f5f9;
+  background: #f8fafc;
+}
+
+.mobile-drawer-user {
+  padding: 1.15rem 1.25rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.mobile-drawer-menu {
+  list-style: none;
+  padding: 0.75rem 0.85rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.mobile-drawer-item a,
+.mobile-drawer-item button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 0.94rem;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mobile-drawer-item a:hover,
+.mobile-drawer-item button:hover {
+  background: #f1f5f9;
+  color: var(--color-primary);
+}
+
+.mobile-drawer-item a.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 700;
+  border-left: 3px solid var(--color-primary);
+}
+
+.mobile-drawer-section-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: #94a3b8;
+  letter-spacing: 0.5px;
+  padding: 8px 14px 4px;
+  margin-top: 6px;
+}
+
+body.drawer-open {
+  overflow: hidden !important;
+}
+
+/* 5. Responsive Tables & Touch Scrolling */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-md);
+  position: relative;
+}
+
+.table-responsive > .table {
+  min-width: 620px;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.mobile-table-scroll-hint {
+  display: none;
+  font-size: 0.76rem;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed #cbd5e1;
+}
+
+/* 6. Form Inputs & Prevent iOS Safari Auto-Zoom */
+@media (max-width: 768px) {
+  .form-control,
+  select.form-control,
+  textarea.form-control,
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  input[type="date"],
+  input[type="search"] {
+    font-size: 16px !important; /* Critical: Stops iOS Safari automatic viewport zooming */
+  }
+}
+
+/* 7. Responsive Modals */
+.modal-overlay,
+[id$="Modal"] {
+  padding: 1rem;
+}
+
+.modal-content,
+[id$="Modal"] > div {
+  max-width: min(94vw, 580px) !important;
+  max-height: 90vh !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 8. Large Screens & Desktop Monitors (1440px - 1920px+) */
+@media (min-width: 1440px) {
+  .container {
+    max-width: 1440px;
+    padding: 0 2rem;
+  }
+  .grid-cols-4 {
+    gap: 1.75rem;
+  }
+}
+
+@media (min-width: 1600px) {
+  .container {
+    max-width: 1560px;
+    padding: 0 2.5rem;
+  }
+}
+
+/* 9. Small Laptop Screens (1200px - 1366px) */
+@media (max-width: 1366px) {
+  .container {
+    max-width: 1200px;
+    padding: 0 1.5rem;
+  }
+  .nav-link {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+}
+
+/* 10. Tablet / iPad Breakpoint (<= 1024px) */
+@media (max-width: 1024px) {
+  .container {
+    padding: 0 1.25rem;
+  }
+  .main-content {
+    padding: 1.5rem 0 3.5rem;
+  }
+  .desktop-nav {
+    display: none !important;
+  }
+  .mobile-nav-toggle-btn {
+    display: flex !important;
+  }
+  .mobile-table-scroll-hint {
+    display: flex;
+  }
+  .hero-banner {
+    padding: 1.85rem 1.75rem !important;
+    border-radius: var(--radius-lg) !important;
+  }
+  .hero-banner::after {
+    width: 180px;
+    height: 180px;
+  }
+  /* Layout with 2fr 1fr (Classes/Groups, Reports, etc.) stacks on tablet */
+  [style*="grid-template-columns: 2fr 1fr"],
+  .layout-sidebar-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+  #slideStage {
+    min-height: 380px !important;
+    max-height: 60vh !important;
+  }
+  .pdf-viewer-wrap, #pdfModeView {
+    height: 600px !important;
+  }
+}
+
+/* 11. Small Tablet & Mobile Landscape (<= 768px) */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 1rem;
+  }
+  .grid {
+    gap: 1rem;
+  }
+  .grid-cols-4,
+  .grid-cols-3,
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+  /* Stacking inline multi-column form grids */
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns: 1fr 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  /* Attendance/Filter form grids */
+  [style*="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) auto"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+  .card-header,
+  .card-body,
+  .card-footer {
+    padding: 1.2rem;
+  }
+  .stat-card {
+    padding: 1.15rem;
+    gap: 1rem;
+  }
+  .stat-val {
+    font-size: 1.6rem;
+  }
+}
+
+/* 12. Smartphone Breakpoint: iPhone 16 Pro Max, iPhone 16, & Similar (<= 640px) */
+@media (max-width: 640px) {
+  .navbar-inner {
+    height: 62px;
+  }
+  .brand-logo {
+    font-size: 1.15rem;
+    gap: 8px;
+  }
+  .brand-logo img {
+    max-height: 32px !important;
+  }
+  .main-content {
+    padding: 1.15rem 0 3rem;
+  }
+  .hero-banner {
+    padding: 1.35rem 1.15rem !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: 1.35rem !important;
+  }
+  .hero-banner h1 {
+    font-size: 1.45rem !important;
+  }
+  .hero-banner p {
+    font-size: 0.88rem !important;
+  }
+  .hero-banner > div {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .hero-banner .btn {
+    width: 100% !important;
+  }
+  .card-header,
+  .card-header[style*="padding"] {
+    padding: 0.95rem 1.15rem !important;
+  }
+  .card-body,
+  .card-body[style*="padding"] {
+    padding: 1.15rem 1rem !important;
+  }
+  .card-footer,
+  .card-footer[style*="padding"] {
+    padding: 0.85rem 1rem !important;
+  }
+  .btn {
+    padding: 9px 16px;
+    font-size: 0.9rem;
+  }
+  .btn-lg {
+    padding: 11px 20px;
+    font-size: 0.95rem;
+  }
+  /* User profile pill in navbar */
+  .user-profile-badge {
+    padding: 4px 8px !important;
+    gap: 6px !important;
+  }
+  .user-profile-badge .user-role-text,
+  .user-profile-badge div > div:nth-child(2) {
+    display: none !important; /* Hide subtitle on mobile */
+  }
+  .user-profile-badge .user-name-text,
+  .user-profile-badge div > div:nth-child(1) {
+    max-width: 95px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.84rem !important;
+  }
+  /* User dropdown menu bounds */
+  #userDropdownMenu {
+    width: calc(100vw - 24px) !important;
+    max-width: 320px !important;
+    right: 0 !important;
+  }
+  /* Quiz & Japanese Test sticky action footer */
+  .card[style*="position: sticky; bottom:"] .card-body,
+  .quiz-sticky-footer .card-body {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+    padding: 0.85rem 1rem !important;
+  }
+  .card[style*="position: sticky; bottom:"] .btn,
+  .quiz-sticky-footer .btn {
+    width: 100% !important;
+  }
+  /* Slide & PDF Interactive Viewers */
+  #slideStage {
+    min-height: 220px !important;
+    max-height: 48vh !important;
+    padding: 0.5rem !important;
+  }
+  .pdf-viewer-wrap, #pdfModeView {
+    height: 460px !important;
+  }
+  #slideThumbTrack {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+  .slide-thumb-card {
+    min-width: 80px !important;
+    padding: 4px !important;
+  }
+  .slide-thumb-card img {
+    width: 75px !important;
+    height: 44px !important;
+  }
+  /* Filter Bars across Admin & Student */
+  form[action*="materials"],
+  form[action*="attendance"],
+  form[action*="students"] {
+    width: 100%;
+  }
+}
+
+/* 13. Extra Small Smartphone: iPhone SE & Similar (<= 400px) */
+@media (max-width: 400px) {
+  .container {
+    padding: 0 0.75rem; /* Extra comfort padding for 375px & 320px screens */
+  }
+  .navbar-inner {
+    height: 58px;
+  }
+  .brand-logo img {
+    max-height: 28px !important;
+  }
+  .brand-logo img:nth-child(2) {
+    max-height: 22px !important;
+  }
+  /* Subject badge in navbar */
+  .navbar .badge {
+    font-size: 0.68rem !important;
+    padding: 2px 6px !important;
+  }
+  /* Hide user name completely on iPhone SE, show only avatar + chevron */
+  .user-profile-badge div[style*="flex-direction: column"] {
+    display: none !important;
+  }
+  .user-profile-badge {
+    padding: 3px !important;
+    border-radius: 50% !important;
+  }
+  #userDropdownChevron {
+    display: none !important;
+  }
+  .card-header,
+  .card-header[style*="padding"],
+  .card-body,
+  .card-body[style*="padding"],
+  .card-footer,
+  .card-footer[style*="padding"] {
+    padding: 0.85rem 0.85rem !important;
+  }
+  .hero-banner {
+    padding: 1.15rem 0.85rem !important;
+  }
+  .hero-banner h1 {
+    font-size: 1.3rem !important;
+  }
+  .stat-card {
+    padding: 0.95rem;
+  }
+  .stat-icon {
+    width: 42px;
+    height: 42px;
+    font-size: 1.25rem;
+  }
+  .stat-val {
+    font-size: 1.45rem;
+  }
+  /* Login subject buttons on iPhone SE */
+  #subjectSelectorGrid {
+    gap: 4px !important;
+  }
+  .subject-pill-btn {
+    padding: 7px 3px !important;
+  }
+  .subject-pill-btn div {
+    font-size: 0.74rem !important;
+    line-height: 1.15 !important;
+  }
+  /* Slide stage on iPhone SE */
+  #slideStage {
+    min-height: 190px !important;
+  }
+  .modal-content,
+  [id$="Modal"] > div {
+    padding: 1rem !important;
+  }
+}
+
 
 

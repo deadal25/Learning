@@ -74,7 +74,7 @@
     </div>
 
     @if($exercises->isNotEmpty())
-        <div class="card" style="position: sticky; bottom: 1.5rem; z-index: 50; box-shadow: 0 -4px 16px rgba(0,0,0,0.1); border: 2px solid var(--color-primary);">
+        <div class="card quiz-sticky-footer" style="position: sticky; bottom: 1rem; z-index: 50; box-shadow: 0 -4px 16px rgba(0,0,0,0.12); border: 2px solid var(--color-primary); border-radius: var(--radius-lg);">
             <div class="card-body" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; padding: 1rem 1.5rem;">
                 <div>
                     <div style="font-weight: 700; font-size: 0.95rem; color: #0f172a;">
@@ -84,7 +84,7 @@
                         Pastikan semua soal terjawab untuk mendapatkan poin maksimal (100 Poin).
                     </div>
                 </div>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;" class="quiz-footer-buttons">
                     <a href="{{ route('student.exercises.index') }}" class="btn btn-secondary">
                         Batal
                     </a>

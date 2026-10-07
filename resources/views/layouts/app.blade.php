@@ -2,7 +2,7 @@
 <html lang="id" data-theme="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <meta name="description" content="Musashi - Platform Pembelajaran Bertingkat Berbasis Level dan Poin (Bahasa Inggris, Bahasa Jepang)">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     @php
@@ -83,7 +83,7 @@
             </div>
 
             @auth
-                <nav>
+                <nav class="desktop-nav">
                     <ul class="nav-menu">
                         @if(auth()->user()->isSuperAdmin())
                             <li>
@@ -427,16 +427,241 @@
                             </div>
                         </div>
                     @endif
+
+                    <!-- Mobile Navigation Toggle Button -->
+                    <button type="button" id="mobileNavToggleBtn" class="mobile-nav-toggle-btn" aria-label="Menu Navigasi Mobile" onclick="toggleMobileNavDrawer(event)">
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                    </button>
                 </div>
             @else
                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                     @if(!request()->routeIs('login'))
                         <a href="{{ route('login') }}" class="btn btn-primary btn-sm">Masuk (Login)</a>
                     @endif
+                    <!-- Mobile Navigation Toggle Button for Guest -->
+                    <button type="button" id="mobileNavToggleBtn" class="mobile-nav-toggle-btn" aria-label="Menu Navigasi Mobile" onclick="toggleMobileNavDrawer(event)">
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                        <span class="hamburger-line"></span>
+                    </button>
                 </div>
             @endauth
         </div>
     </header>
+
+    <!-- Mobile Navigation Backdrop & Drawer -->
+    <div id="mobileNavBackdrop" class="mobile-nav-backdrop" onclick="closeMobileNavDrawer()"></div>
+    <div id="mobileNavDrawer" class="mobile-nav-drawer" role="dialog" aria-modal="true" aria-label="Menu Navigasi Mobile">
+        <div class="mobile-drawer-header">
+            <a href="{{ auth()->check() ? route('dashboard') : url('/') }}" style="display: flex; align-items: center; gap: 8px; text-decoration: none;">
+                <img src="{{ asset('images/bola.png') }}" alt="Logo" style="height: 32px; width: auto; object-fit: contain;">
+                <img src="{{ asset('images/Gambar1.png') }}" alt="MUSASHI" style="height: 24px; width: auto; object-fit: contain;">
+            </a>
+            <button type="button" onclick="closeMobileNavDrawer()" aria-label="Tutup Menu" style="background: none; border: none; font-size: 1.4rem; color: #64748b; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px;">
+                ✕
+            </button>
+        </div>
+
+        @auth
+            <div class="mobile-drawer-user">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <div class="avatar" style="width: 42px; height: 42px; font-size: 1.05rem; font-weight: 800; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                    </div>
+                    <div style="overflow: hidden;">
+                        <div style="font-weight: 800; font-size: 0.96rem; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {{ auth()->user()->name }}
+                        </div>
+                        <div style="font-size: 0.78rem; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            {{ auth()->user()->email }}
+                        </div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    @if(auth()->user()->isSuperAdmin())
+                        <span class="badge" style="background: #eef2ff; color: #4338ca; font-weight: 800; font-size: 0.72rem;">
+                            🛡️ Super Admin
+                        </span>
+                    @elseif(auth()->user()->isAdmin())
+                        @php
+                            $adminSubj = match((int)auth()->user()->subject_id) {
+                                2 => ['label' => 'Guru Bhs Jepang', 'bg' => '#fce7f3', 'color' => '#9d174d'],
+                                3 => ['label' => 'Guru Matematika', 'bg' => '#dcfce7', 'color' => '#166534'],
+                                default => ['label' => 'Guru Bhs Inggris', 'bg' => '#dbeafe', 'color' => '#1e40af'],
+                            };
+                        @endphp
+                        <span class="badge" style="background: {{ $adminSubj['bg'] }}; color: {{ $adminSubj['color'] }}; font-weight: 800; font-size: 0.72rem;">
+                            👨‍🏫 {{ $adminSubj['label'] }}
+                        </span>
+                    @else
+                        @php
+                            $stSubj = match((int)(session('active_subject_id') ?? auth()->user()->subject_id ?? 1)) {
+                                2 => ['label' => 'Bhs Jepang', 'bg' => '#fce7f3', 'color' => '#9d174d'],
+                                3 => ['label' => 'Matematika', 'bg' => '#dcfce7', 'color' => '#166534'],
+                                default => ['label' => 'Bhs Inggris', 'bg' => '#dbeafe', 'color' => '#1e40af'],
+                            };
+                        @endphp
+                        <span class="badge" style="background: {{ $stSubj['bg'] }}; color: {{ $stSubj['color'] }}; font-weight: 800; font-size: 0.72rem;">
+                            🎓 {{ $stSubj['label'] }}
+                        </span>
+                        @if(auth()->user()->class_name)
+                            <span class="badge" style="background: #f1f5f9; color: #334155; font-size: 0.72rem; font-weight: 700;">
+                                {{ auth()->user()->class_name }}
+                            </span>
+                        @endif
+                    @endif
+                </div>
+            </div>
+
+            <ul class="mobile-drawer-menu">
+                <div class="mobile-drawer-section-title">Menu Utama</div>
+                @if(auth()->user()->isSuperAdmin())
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('superadmin.dashboard') }}" class="{{ request()->routeIs('superadmin.dashboard') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>📊</span> <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('superadmin.admins.index') }}" class="{{ request()->routeIs('superadmin.admins.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>👩‍🏫</span> <span>Kelola Admin</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('superadmin.students.index') }}" class="{{ request()->routeIs('superadmin.students.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>👥</span> <span>Kelola Siswa</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('superadmin.questions.index') }}" class="{{ request()->routeIs('superadmin.questions.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>📝</span> <span>Kelola Soal</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('superadmin.attendance.index') }}" class="{{ request()->routeIs('superadmin.attendance.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>⏱️</span> <span>Riwayat Absensi 3 Mapel</span>
+                        </a>
+                    </li>
+                @elseif(auth()->user()->isAdmin())
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>📊</span> <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('admin.materials.index') }}" class="{{ request()->routeIs('admin.materials.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>📚</span> <span>Materi Pembelajaran</span>
+                        </a>
+                    </li>
+                    @if(auth()->user()->subject_id == 1)
+                        <li class="mobile-drawer-item">
+                            <a href="{{ route('admin.grades.index') }}" class="{{ request()->routeIs('admin.grades.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                                <span>⭐</span> <span>Nilai / Feedback</span>
+                            </a>
+                        </li>
+                    @elseif(auth()->user()->subject_id == 2)
+                        <li class="mobile-drawer-item">
+                            <a href="{{ route('admin.japanese.tests.index') }}" class="{{ request()->routeIs('admin.japanese.tests.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                                <span>📝</span> <span>Latihan Soal & Tes Jepang</span>
+                            </a>
+                        </li>
+                    @else
+                        <li class="mobile-drawer-item">
+                            <a href="{{ route('admin.exercises.index') }}" class="{{ request()->routeIs('admin.exercises.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                                <span>📝</span> <span>Latihan Soal Matematika</span>
+                            </a>
+                        </li>
+                    @endif
+                    <div class="mobile-drawer-section-title">Manajemen Kelas & Siswa</div>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('admin.students.index') }}" class="{{ request()->routeIs('admin.students.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>👥</span> <span>Kelola Siswa</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('admin.attendance.index') }}" class="{{ request()->routeIs('admin.attendance.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>⏱️</span> <span>Kelola Absensi</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('admin.classes.index') }}" class="{{ request()->routeIs('admin.classes.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>🏫</span> <span>{{ auth()->user()->subject_id == 2 ? 'Kelola Grup' : 'Kelola Kelas' }}</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('admin.meetings.index') }}" class="{{ request()->routeIs('admin.meetings.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>🗓️</span> <span>Kelola Pertemuan</span>
+                        </a>
+                    </li>
+                @else
+                    {{-- Siswa --}}
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('student.dashboard') }}" class="{{ request()->routeIs('student.dashboard') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>🏠</span> <span>Beranda</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('student.materials.index') }}" class="{{ request()->routeIs('student.materials.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>📚</span> <span>Materi Pelajaran</span>
+                        </a>
+                    </li>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ auth()->user()->subject_id == 2 ? route('student.japanese.tests.index') : route('student.exercises.index') }}" class="{{ request()->routeIs('student.exercises.*') || request()->routeIs('student.japanese.tests.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>🎯</span> <span>Latihan Soal</span>
+                        </a>
+                    </li>
+                    <div class="mobile-drawer-section-title">Akun & Riwayat Belajar</div>
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('student.attendance.index') }}" class="{{ request()->routeIs('student.attendance.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>⏱️</span> <span>Riwayat Presensi Siswa</span>
+                        </a>
+                    </li>
+                    @if(auth()->user()->subject_id == 2)
+                        <li class="mobile-drawer-item">
+                            <a href="{{ route('student.japanese.grades.index') }}" class="{{ request()->routeIs('student.japanese.grades.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                                <span>📊</span> <span>Riwayat Skor Tes Evaluasi</span>
+                            </a>
+                        </li>
+                    @elseif(auth()->user()->subject_id == 1)
+                        <li class="mobile-drawer-item">
+                            <a href="{{ route('student.grades.index') }}" class="{{ request()->routeIs('student.grades.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                                <span>📊</span> <span>Riwayat Skor & Feedback</span>
+                            </a>
+                        </li>
+                    @endif
+                    <li class="mobile-drawer-item">
+                        <a href="{{ route('student.profile.edit') }}" class="{{ request()->routeIs('student.profile.*') ? 'active' : '' }}" onclick="closeMobileNavDrawer()">
+                            <span>👤</span> <span>Profil Saya & Sandi</span>
+                        </a>
+                    </li>
+                @endif
+
+                <li style="margin-top: auto; padding-top: 1rem; border-top: 1px solid #f1f5f9;">
+                    <form action="{{ route('logout') }}" method="POST" style="margin: 0;">
+                        @csrf
+                        <button type="submit" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 11px; background: #fee2e2; border: 1px solid #fecaca; border-radius: var(--radius-md); color: #dc2626; font-weight: 700; font-size: 0.92rem; cursor: pointer;">
+                            <span>🚪</span>
+                            <span>Keluar dari Akun</span>
+                        </button>
+                    </form>
+                </li>
+            </ul>
+        @else
+            <ul class="mobile-drawer-menu">
+                <li class="mobile-drawer-item">
+                    <a href="{{ url('/') }}" onclick="closeMobileNavDrawer()">
+                        <span>🏠</span> <span>Halaman Utama</span>
+                    </a>
+                </li>
+                <li class="mobile-drawer-item" style="margin-top: 1rem;">
+                    <a href="{{ route('login') }}" class="btn btn-primary" style="justify-content: center; color: #fff;" onclick="closeMobileNavDrawer()">
+                        <span>🔑 Masuk ke Akun (Login)</span>
+                    </a>
+                </li>
+            </ul>
+        @endauth
+    </div>
 
     <!-- Main Content Area -->
     <main class="main-content">
@@ -517,6 +742,33 @@
         }
     }
 
+    function toggleMobileNavDrawer(e) {
+        if (e) e.stopPropagation();
+        const drawer = document.getElementById('mobileNavDrawer');
+        const backdrop = document.getElementById('mobileNavBackdrop');
+        const toggleBtn = document.getElementById('mobileNavToggleBtn');
+        if (!drawer) return;
+        const isOpen = drawer.classList.contains('open');
+        if (isOpen) {
+            closeMobileNavDrawer();
+        } else {
+            drawer.classList.add('open');
+            if (backdrop) backdrop.classList.add('open');
+            if (toggleBtn) toggleBtn.classList.add('active');
+            document.body.classList.add('drawer-open');
+        }
+    }
+
+    function closeMobileNavDrawer() {
+        const drawer = document.getElementById('mobileNavDrawer');
+        const backdrop = document.getElementById('mobileNavBackdrop');
+        const toggleBtn = document.getElementById('mobileNavToggleBtn');
+        if (drawer) drawer.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('open');
+        if (toggleBtn) toggleBtn.classList.remove('active');
+        document.body.classList.remove('drawer-open');
+    }
+
     document.addEventListener('click', function(e) {
         const menu = document.getElementById('userDropdownMenu');
         const toggle = document.getElementById('userDropdownToggle');
@@ -527,8 +779,27 @@
                 if (chevron) chevron.style.transform = 'rotate(0deg)';
             }
         }
+
+        const drawer = document.getElementById('mobileNavDrawer');
+        const toggleBtn = document.getElementById('mobileNavToggleBtn');
+        if (drawer && drawer.classList.contains('open')) {
+            if (!drawer.contains(e.target) && (!toggleBtn || !toggleBtn.contains(e.target))) {
+                closeMobileNavDrawer();
+            }
+        }
     });
 
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeMobileNavDrawer();
+            const menu = document.getElementById('userDropdownMenu');
+            if (menu) {
+                menu.style.display = 'none';
+                const chevron = document.getElementById('userDropdownChevron');
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+            }
+        }
+    });
     </script>
     @stack('scripts')
 </body>

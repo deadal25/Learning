@@ -58,7 +58,7 @@
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: flex-start;">
+<div class="layout-sidebar-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: flex-start;">
     <!-- Left Column: Kelola Nama-Nama Kelas -->
     <div>
         <div class="card" style="box-shadow: var(--shadow-sm); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 2rem;">

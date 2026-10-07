@@ -49,7 +49,7 @@
 @endif
 
 <!-- Subject Selector Tabs -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-bottom: 1.5rem;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px; margin-bottom: 1.5rem;">
     @foreach($subjects as $subj)
         @php
             $isSelected = ($currentSubject->id === $subj->id);

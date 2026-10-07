@@ -3,11 +3,11 @@
 @section('title', 'Masuk ke Akun - Learning Musashi')
 
 @section('content')
-<div style="max-width: 520px; margin: 2rem auto; padding: 0 1rem;">
-    <div class="card" style="box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05); border-radius: 1.25rem; border: 1px solid #e2e8f0; overflow: hidden; background: #ffffff;">
+<div class="login-card-container" style="max-width: 520px; margin: 2rem auto; padding: 0 1rem;">
+    <div class="card login-card" style="box-shadow: 0 20px 35px -10px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05); border-radius: 1.25rem; border: 1px solid #e2e8f0; overflow: hidden; background: #ffffff;">
         
         <!-- Header Branding -->
-        <div style="padding: 2.25rem 2.25rem 1.5rem; text-align: center; background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%); border-bottom: 1px solid #f1f5f9;">
+        <div class="login-card-header" style="padding: 2.25rem 2.25rem 1.5rem; text-align: center; background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%); border-bottom: 1px solid #f1f5f9;">
             <div style="display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 1rem;">
                 <img src="{{ asset('images/bola.png') }}" alt="Logo Bola" style="height: 50px; width: auto; object-fit: contain;">
                 <img src="{{ asset('images/Gambar1.png') }}" alt="MUSASHI" style="height: 38px; width: auto; object-fit: contain;">
@@ -20,7 +20,7 @@
             </p>
         </div>
 
-        <div class="card-body" style="padding: 2rem 2.25rem;">
+        <div class="card-body login-card-body" style="padding: 2rem 2.25rem;">
             
             <!-- Alert Messages -->
             @if(session('info'))
@@ -368,8 +368,54 @@
         box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
     }
     .subject-pill-btn.active div:first-child {
-        transform: scale(1.1);
+        transform: scale(1.05);
         transition: transform 0.2s;
+    }
+    @media (max-width: 640px) {
+        .login-card-container {
+            margin: 1rem auto !important;
+            padding: 0 0.5rem !important;
+        }
+        .login-card-header {
+            padding: 1.5rem 1.25rem 1rem !important;
+        }
+        .login-card-body {
+            padding: 1.25rem 1rem !important;
+        }
+        #subjectSelectorGrid {
+            gap: 6px !important;
+        }
+        .subject-pill-btn {
+            padding: 9px 5px !important;
+        }
+        .subject-pill-btn div {
+            font-size: 0.8rem !important;
+        }
+    }
+    @media (max-width: 380px) {
+        .login-card-container {
+            padding: 0 0.25rem !important;
+        }
+        .login-card-header {
+            padding: 1.25rem 0.85rem 0.85rem !important;
+        }
+        .login-card-body {
+            padding: 1rem 0.75rem !important;
+        }
+        #subjectSelectorGrid {
+            gap: 4px !important;
+        }
+        .subject-pill-btn {
+            padding: 7px 3px !important;
+        }
+        .subject-pill-btn div {
+            font-size: 0.72rem !important;
+            line-height: 1.15 !important;
+        }
+        #loginModeNav button {
+            font-size: 0.82rem !important;
+            padding: 8px 6px !important;
+        }
     }
 </style>
 @endpush
