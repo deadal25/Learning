@@ -77,8 +77,14 @@ Route::middleware('auth')->group(function () {
         Route::post('/questions/japanese/toggle-all', [SuperAdminQuestionController::class, 'toggleAllJapanese'])->name('questions.japanese.toggle-all');
         Route::put('/questions/japanese/{test}/update-test', [SuperAdminQuestionController::class, 'updateJapaneseTest'])->name('questions.japanese.update-test');
 
-        // Riwayat Absensi Super Admin (Guru & Siswa per 3 Mapel)
+        // Riwayat & Kelola Absensi Super Admin (Guru & Siswa per Mapel)
         Route::get('/attendance', [SuperAdminAttendanceController::class, 'index'])->name('attendance.index');
+        Route::post('/attendance/store', [SuperAdminAttendanceController::class, 'store'])->name('attendance.store');
+        Route::put('/attendance/{attendance}', [SuperAdminAttendanceController::class, 'update'])->name('attendance.update');
+        Route::delete('/attendance/{attendance}', [SuperAdminAttendanceController::class, 'destroy'])->name('attendance.destroy');
+        Route::post('/attendance/bulk-delete', [SuperAdminAttendanceController::class, 'bulkDestroy'])->name('attendance.bulk-destroy');
+        Route::post('/attendance/reset-all', [SuperAdminAttendanceController::class, 'resetAll'])->name('attendance.reset-all');
+        Route::get('/attendance/export', [SuperAdminAttendanceController::class, 'export'])->name('attendance.export');
     });
 
     // 2. Admin (Guru/Miss) Portal - accessible by Admin and Super Admin

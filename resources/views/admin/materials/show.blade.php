@@ -49,8 +49,39 @@
     </div>
 @endif
 
+<!-- Mobile Quick Helper Banner (Optimized for iPhone SE, 16, 16 Pro Max, iPad, and Tablets) -->
+<div class="mobile-material-banner" style="background: linear-gradient(135deg, #1e1b4b, #312e81); color: #fff; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 1rem; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; box-shadow: 0 4px 12px rgba(30, 27, 75, 0.2);">
+    <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 1.5rem;">📱</span>
+        <div>
+            <strong style="font-size: 0.92rem; display: block; color: #f8fafc;">Mode Baca Guru di Ponsel & Tablet</strong>
+            <span style="font-size: 0.76rem; color: #cbd5e1;">Usap layar (swipe) untuk ganti slide/halaman, atau buka layar penuh di browser</span>
+        </div>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+        @if($material->isPdf() || !empty($presentationData['pdf_url']))
+            <a href="{{ $material->isPdf() ? route('admin.materials.preview', $material) : $presentationData['pdf_url'] }}" target="_blank" class="btn btn-primary btn-sm" style="font-weight: 700; font-size: 0.82rem; background: #3b82f6; border-color: #3b82f6; display: inline-flex; align-items: center; gap: 6px;">
+                <span>↗ Buka Semua Halaman (Safari/Tab Baru)</span>
+            </a>
+        @endif
+        @if($material->file_path)
+            <a href="{{ route('admin.materials.download', $material) }}" class="btn btn-warning btn-sm" style="font-weight: 700; font-size: 0.82rem;">
+                ⬇ Unduh ({{ strtoupper($material->file_type ?? 'FILE') }})
+            </a>
+        @endif
+        <button type="button" class="btn btn-secondary btn-sm" onclick="toggleViewerFullscreen()" style="font-size: 0.82rem; font-weight: 600; background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.3);">
+            ⛶ Layar Penuh
+        </button>
+    </div>
+</div>
+
 <!-- Document / Slide Interactive Viewer Area -->
-<div class="card" id="materialViewerCard" style="box-shadow: var(--shadow-lg); overflow: hidden; margin-bottom: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color);">
+<div class="card" id="materialViewerCard" style="box-shadow: var(--shadow-lg); overflow: hidden; margin-bottom: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border-color); position: relative;">
+    <!-- Floating Exit Fullscreen Button (for Mobile iOS Pseudo-Fullscreen) -->
+    <button type="button" id="mobileFullscreenExitBtn" onclick="toggleViewerFullscreen()" style="display: none; position: fixed; top: 14px; right: 14px; z-index: 1000000; background: #ef4444; color: #fff; border: none; border-radius: 9999px; padding: 8px 16px; font-weight: 800; font-size: 0.85rem; box-shadow: 0 4px 14px rgba(0,0,0,0.4); cursor: pointer;">
+        ✕ Keluar Layar Penuh
+    </button>
+
     <!-- Viewer Top Toolbar -->
     <div style="background: #1e1b4b; color: #ffffff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -89,7 +120,7 @@
             @endif
 
             @if($material->file_path)
-                <a href="{{ route('admin.materials.preview', $material) }}" target="_blank" class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.25);" title="Buka pratinjau dokumen / slide di tab baru browser">
+                <a href="{{ $material->isPdf() ? route('admin.materials.preview', $material) : ($presentationData['pdf_url'] ?? route('admin.materials.download', $material)) }}" target="_blank" class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.25);" title="Buka pratinjau dokumen / slide di tab baru browser (Mendukung semua halaman di iOS Safari)">
                     ↗ Buka di Tab Baru
                 </a>
                 @if($material->isPpt())
@@ -114,24 +145,93 @@
     <!-- Viewer Body -->
     <div id="viewerContainer" style="background: #0f172a; position: relative;">
         @if($material->isPdf())
-            <!-- Native In-Browser PDF Viewer for PDF files (Direct PDF Document without slide mode) -->
-            <div class="pdf-viewer-wrap" style="height: 750px; width: 100%; background: #525659;">
-                <object data="{{ route('admin.materials.preview', $material) }}#toolbar=1&navpanes=1" type="application/pdf" width="100%" height="100%">
-                    <iframe src="{{ route('admin.materials.preview', $material) }}#toolbar=1&navpanes=1" width="100%" height="100%" style="border: none; display: block;" title="{{ $material->title }}">
-                        <div style="padding: 3rem; text-align: center; color: #ffffff;">
-                            <p style="margin-bottom: 1rem; font-size: 1.1rem; font-weight: 600;">Dokumen PDF Materi Siap Dipelajari</p>
-                            <p style="margin-bottom: 1.5rem; color: #cbd5e1; font-size: 0.9rem;">Pratinjau langsung di dalam browser sedang dimuat atau browser Anda membutuhkan pembuka PDF eksternal.</p>
-                            <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
-                                <a href="{{ route('admin.materials.preview', $material) }}" target="_blank" class="btn btn-primary btn-lg" style="font-weight: 700;">
-                                    ↗ Buka PDF di Tab Baru
-                                </a>
-                                <a href="{{ route('admin.materials.download', $material) }}" class="btn btn-warning btn-lg" style="font-weight: 700;">
-                                    ⬇ Unduh File PDF Materi
-                                </a>
-                            </div>
+            <!-- SMART PDF VIEWER: Canvas-based PDF.js (Supports iPhone SE, 16, Pro Max, iPad, and Tablets without getting stuck on page 1) -->
+            <div id="pdfSmartViewerSection" style="width: 100%; background: #0f172a;">
+                <!-- PDF Controls Sub-toolbar -->
+                <div style="background: #1e293b; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <span class="badge" style="background: #dc2626; color: #fff; font-weight: 800; font-size: 0.78rem;">📕 Dokumen PDF</span>
+                        <span style="font-size: 0.88rem; color: #cbd5e1;">
+                            Halaman <strong id="pdfCurrentPageNum" style="color: #60a5fa; font-size: 1rem;">1</strong> dari <strong id="pdfTotalPages">-</strong>
+                        </span>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <!-- Navigation Buttons (for Single Page mode) -->
+                        <div id="pdfSingleNavControls" style="display: none; align-items: center; gap: 6px;">
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="prevPdfPage()" id="btnPrevPdfPage" style="background: #334155; color: #fff; border: none; font-weight: 700; font-size: 0.8rem;">
+                                ◀ Sebelumnya
+                            </button>
+                            <select id="pdfPageSelect" onchange="goToPdfPage(parseInt(this.value))" style="background: #334155; color: #fff; border: 1px solid #475569; padding: 4px 8px; border-radius: 6px; font-size: 0.82rem; font-weight: 600;">
+                                <option value="1">Halaman 1</option>
+                            </select>
+                            <button type="button" class="btn btn-primary btn-sm" onclick="nextPdfPage()" id="btnNextPdfPage" style="font-weight: 700; font-size: 0.8rem;">
+                                Berikutnya ▶
+                            </button>
                         </div>
-                    </iframe>
-                </object>
+
+                        <!-- Mode Switch Buttons -->
+                        <div style="display: inline-flex; background: rgba(255,255,255,0.1); border-radius: 6px; padding: 2px;">
+                            <button type="button" id="btnPdfModeScroll" onclick="setPdfViewMode('scroll')" class="btn btn-sm" style="background: #2563eb; color: #fff; border: none; font-size: 0.78rem; font-weight: 700; padding: 4px 10px;" title="Gulir ke bawah untuk membaca seluruh halaman secara bersambung">
+                                📜 Gulir Semua
+                            </button>
+                            <button type="button" id="btnPdfModeSingle" onclick="setPdfViewMode('single')" class="btn btn-sm" style="background: transparent; color: #cbd5e1; border: none; font-size: 0.78rem; font-weight: 700; padding: 4px 10px;" title="Buka satu per satu halaman dengan tombol atau swipe geser layar">
+                                📄 Per Halaman
+                            </button>
+                        </div>
+
+                        <!-- Zoom Controls -->
+                        <div style="display: inline-flex; background: rgba(255,255,255,0.1); border-radius: 6px; padding: 2px;">
+                            <button type="button" onclick="zoomPdf(-0.15)" class="btn btn-sm" style="background: transparent; color: #cbd5e1; border: none; font-size: 0.85rem; padding: 3px 8px;" title="Perkecil">🔍 -</button>
+                            <button type="button" onclick="zoomPdf(0.15)" class="btn btn-sm" style="background: transparent; color: #cbd5e1; border: none; font-size: 0.85rem; padding: 3px 8px;" title="Perbesar">🔍 +</button>
+                            <button type="button" onclick="resetPdfZoom()" class="btn btn-sm" style="background: transparent; color: #cbd5e1; border: none; font-size: 0.76rem; padding: 3px 8px;" title="Pas Lebar">Fit</button>
+                        </div>
+
+                        <a href="{{ route('admin.materials.preview', $material) }}" target="_blank" class="btn btn-secondary btn-sm" style="background: rgba(255,255,255,0.15); color: #fff; border: 1px solid rgba(255,255,255,0.25); font-size: 0.8rem; font-weight: 600;" title="Buka langsung di tab baru (Native Apple PDF Scroll pada iPhone/iPad)">
+                            ↗ Tab Baru
+                        </a>
+                    </div>
+                </div>
+
+                <!-- PDF Content Stage -->
+                <div id="pdfPagesScrollStage" style="position: relative; width: 100%; min-height: 520px; max-height: 80vh; overflow-y: auto; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 1.25rem 0.75rem; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);">
+                    <!-- Loading Indicator -->
+                    <div id="pdfLoadingIndicator" style="padding: 4rem 1.5rem; text-align: center; color: #ffffff;">
+                        <div style="display: inline-block; width: 42px; height: 42px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 1rem;"></div>
+                        <h4 style="font-size: 1.1rem; margin: 0 0 6px 0; font-weight: 700; color: #f8fafc;">Memuat Dokumen PDF...</h4>
+                        <p style="font-size: 0.85rem; color: #94a3b8; margin: 0;">Menyiapkan seluruh halaman materi agar dapat digulir di ponsel & tablet.</p>
+                    </div>
+
+                    <!-- Canvas Container (All pages rendered here) -->
+                    <div id="pdfPagesContainer" style="width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;"></div>
+
+                    <!-- Native Fallback (Shows if PDF.js fails or device requires direct open) -->
+                    <div id="pdfNativeFallback" style="display: none; padding: 2rem 1.5rem; text-align: center; color: #ffffff;">
+                        <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">📄</div>
+                        <h4 style="font-size: 1.15rem; font-weight: 800; color: #ffffff; margin-bottom: 8px;">Dokumen PDF Siap Dibuka</h4>
+                        <p style="max-width: 540px; margin: 0 auto 1.25rem auto; font-size: 0.88rem; color: #cbd5e1; line-height: 1.5;">
+                            Untuk pengalaman membaca terbaik di iPhone / iPad / Tablet, Anda dapat membuka dokumen secara langsung di browser atau mengunduh berkasnya.
+                        </p>
+                        <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                            <a href="{{ route('admin.materials.preview', $material) }}" target="_blank" class="btn btn-primary btn-lg" style="font-weight: 700;">
+                                ↗ Buka PDF di Tab Baru (Layar Penuh)
+                            </a>
+                            <a href="{{ route('admin.materials.download', $material) }}" class="btn btn-warning btn-lg" style="font-weight: 700;">
+                                ⬇ Unduh File PDF
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer guidance -->
+                <div style="padding: 10px 18px; background: #1e293b; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.82rem; color: #94a3b8;">
+                    <div>
+                        💡 <strong>Ponsel & Tablet:</strong> Anda dapat menggulir ke bawah untuk membaca seluruh halaman secara bersambung, atau beralih ke <strong>Mode Per Halaman</strong> untuk usap layar (swipe).
+                    </div>
+                    <a href="{{ route('admin.materials.preview', $material) }}" target="_blank" style="color: #60a5fa; text-decoration: underline; font-weight: 600;">
+                        Buka dokumen penuh di Safari &rarr;
+                    </a>
+                </div>
             </div>
 
         @elseif($material->isPpt() && !empty($presentationData['has_slides']))
@@ -161,8 +261,16 @@
                     </div>
                 </div>
 
-                <!-- Slide Stage (Displays the REAL high-res slide image) -->
-                <div id="slideStage" style="min-height: 520px; max-height: 75vh; padding: 1.5rem; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); display: flex; align-items: center; justify-content: center; position: relative;">
+                <!-- Slide Stage (Displays the REAL high-res slide image with Touch Gestures & Mobile Tap Arrows) -->
+                <div id="slideStage" style="min-height: 480px; max-height: 75vh; padding: 1.25rem; background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); display: flex; align-items: center; justify-content: center; position: relative; user-select: none;">
+                    <!-- Floating Mobile Thumb Tap Arrows -->
+                    <button type="button" class="mobile-slide-tap-arrow left" onclick="prevSlide()" aria-label="Slide Sebelumnya" title="Slide Sebelumnya">
+                        ‹
+                    </button>
+                    <button type="button" class="mobile-slide-tap-arrow right" onclick="nextSlide()" aria-label="Slide Berikutnya" title="Slide Berikutnya">
+                        ›
+                    </button>
+
                     @foreach($presentationData['slides'] as $index => $slideUrl)
                         <div class="real-slide-item" id="slide-item-{{ $loop->iteration }}" style="display: {{ $loop->first ? 'flex' : 'none' }}; align-items: center; justify-content: center; width: 100%; height: 100%; animation: fadeIn 0.2s ease-in-out;">
                             <img src="{{ $slideUrl }}" alt="Slide {{ $loop->iteration }}" id="slide-img-{{ $loop->iteration }}" style="max-width: 100%; max-height: 68vh; object-fit: contain; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border-radius: 6px; background: #ffffff;">
@@ -171,7 +279,7 @@
                 </div>
 
                 <!-- Bottom Slide Thumbnails Strip -->
-                <div style="background: #090d16; padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.1); overflow-x: auto; white-space: nowrap; display: flex; gap: 12px;" id="slideThumbTrack">
+                <div style="background: #090d16; padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.1); overflow-x: auto; white-space: nowrap; display: flex; gap: 12px; -webkit-overflow-scrolling: touch;" id="slideThumbTrack">
                     @foreach($presentationData['slides'] as $index => $slideUrl)
                         <div class="slide-thumb-card" id="thumb-{{ $loop->iteration }}" onclick="goToSlide({{ $loop->iteration }})" style="display: inline-flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border-radius: 6px; cursor: pointer; border: 2px solid {{ $loop->first ? '#4f46e5' : 'rgba(255,255,255,0.1)' }}; background: {{ $loop->first ? 'rgba(79,70,229,0.25)' : 'rgba(255,255,255,0.04)' }}; transition: all 0.2s; min-width: 110px;" title="Slide {{ $loop->iteration }}">
                             <img src="{{ $slideUrl }}" alt="Thumb {{ $loop->iteration }}" style="width: 100px; height: 58px; object-fit: cover; border-radius: 4px; display: block; background: #ffffff;">
@@ -183,7 +291,7 @@
                 <!-- Footer guidance -->
                 <div style="padding: 10px 18px; background: #1e293b; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid rgba(255,255,255,0.08);">
                     <div style="font-size: 0.82rem; color: #94a3b8;">
-                        💡 <strong>Navigasi:</strong> Tekan tombol keyboard <strong>&larr; Panah Kiri</strong> dan <strong>Panah Kanan &rarr;</strong> atau klik thumbnail untuk berpindah slide.
+                        💡 <strong>Navigasi:</strong> Usap layar (swipe kiri/kanan), ketuk panah samping, atau gunakan tombol panah keyboard untuk berpindah slide.
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <a href="{{ route('admin.materials.download', $material) }}" class="btn btn-warning btn-sm" style="font-weight: 600;">
@@ -193,14 +301,21 @@
                 </div>
             </div>
 
-            <!-- PDF MODE VIEW (If user toggles to PDF or wants to view as native PDF) -->
+            <!-- PDF MODE VIEW (If user toggles to PDF or wants to view as PDF) -->
             @if(!empty($presentationData['pdf_url']))
-                <div id="pdfModeView" style="display: none; height: 750px; width: 100%; background: #525659;">
-                    <iframe
-                        src="{{ $presentationData['pdf_url'] }}#toolbar=1&navpanes=1"
-                        style="width: 100%; height: 100%; border: none; display: block;"
-                        title="{{ $material->title }}"
-                    ></iframe>
+                <div id="pdfModeView" style="display: none; width: 100%; background: #0f172a;">
+                    <div style="padding: 1rem; text-align: center;">
+                        <a href="{{ $presentationData['pdf_url'] }}" target="_blank" class="btn btn-primary" style="font-weight: 700; margin-bottom: 12px;">
+                            ↗ Buka Dokumen Presentasi PDF Penuh di Tab Baru
+                        </a>
+                    </div>
+                    <div style="width: 100%; height: 75vh; min-height: 480px;">
+                        <iframe
+                            src="{{ $presentationData['pdf_url'] }}#toolbar=1&navpanes=1"
+                            style="width: 100%; height: 100%; border: none; display: block;"
+                            title="{{ $material->title }}"
+                        ></iframe>
+                    </div>
                 </div>
             @endif
 
@@ -540,6 +655,9 @@
 </div>
 
 @push('scripts')
+<!-- PDF.js from CDN with multi-CDN fallback -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js';"></script>
+
 <script>
 function toggleAdminReplyForm(id) {
     const el = document.getElementById('admin-reply-form-' + id);
@@ -547,6 +665,9 @@ function toggleAdminReplyForm(id) {
     el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
 }
 
+// ============================================================
+// PPT SLIDE PRESENTATION LOGIC + TOUCH SWIPE FOR MOBILE
+// ============================================================
 let currentSlide = 1;
 const totalSlides = {{ $presentationData['total_slides'] ?? 0 }};
 
@@ -601,6 +722,288 @@ function prevSlide() {
     }
 }
 
+// Attach Touch Swipe Listener on Slide Stage for iPhone & Android
+(function initSlideTouchGestures() {
+    const stage = document.getElementById('slideStage');
+    if (!stage) return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    stage.addEventListener('touchstart', function(e) {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    stage.addEventListener('touchend', function(e) {
+        const touchEndX = e.changedTouches[0].screenX;
+        const touchEndY = e.changedTouches[0].screenY;
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+
+        // Trigger horizontal swipe only if movement is primarily horizontal and > 35px
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 35) {
+            if (diffX < 0) {
+                nextSlide(); // Geser ke kiri -> Slide berikutnya
+            } else {
+                prevSlide(); // Geser ke kanan -> Slide sebelumnya
+            }
+        }
+    }, { passive: true });
+})();
+
+// ============================================================
+// SMART PDF.JS RENDERER (RESOLVES MOBILE/IPHONE STUCK ON COVER)
+// ============================================================
+const pdfTargetUrl = @json($material->isPdf() ? route('admin.materials.preview', $material) : ($presentationData['pdf_url'] ?? null));
+let pdfDocInstance = null;
+let currentPdfPage = 1;
+let pdfViewMode = 'scroll'; // 'scroll' (all pages) or 'single' (page by page)
+let pdfZoomLevel = 1.0;
+let isRenderingPdf = false;
+
+function initPdfEngine() {
+    if (!pdfTargetUrl) return;
+
+    const loadingEl = document.getElementById('pdfLoadingIndicator');
+    const fallbackEl = document.getElementById('pdfNativeFallback');
+
+    // Wait until pdfjsLib is loaded or timeout
+    let attempts = 0;
+    const checkPdfJs = setInterval(function() {
+        attempts++;
+        if (typeof pdfjsLib !== 'undefined') {
+            clearInterval(checkPdfJs);
+            loadPdfWithPdfJs(pdfTargetUrl);
+        } else if (attempts > 30) {
+            clearInterval(checkPdfJs);
+            console.warn('PDF.js tidak dapat dimuat, beralih ke penampil bawaan.');
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (fallbackEl) fallbackEl.style.display = 'block';
+        }
+    }, 100);
+}
+
+function loadPdfWithPdfJs(url) {
+    const loadingEl = document.getElementById('pdfLoadingIndicator');
+    const fallbackEl = document.getElementById('pdfNativeFallback');
+
+    try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    } catch(e) {}
+
+    const loadingTask = pdfjsLib.getDocument({
+        url: url,
+        cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+        cMapPacked: true,
+        enableXfa: true,
+    });
+
+    loadingTask.promise.then(function(pdf) {
+        pdfDocInstance = pdf;
+
+        const totalEl = document.getElementById('pdfTotalPages');
+        if (totalEl) totalEl.innerText = pdf.numPages;
+
+        const selectEl = document.getElementById('pdfPageSelect');
+        if (selectEl) {
+            selectEl.innerHTML = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.innerText = 'Halaman ' + i + ' / ' + pdf.numPages;
+                selectEl.appendChild(opt);
+            }
+        }
+
+        if (loadingEl) loadingEl.style.display = 'none';
+        renderPdfDocument();
+    }).catch(function(err) {
+        console.warn('PDF.js render error:', err);
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (fallbackEl) fallbackEl.style.display = 'block';
+    });
+}
+
+function renderPdfDocument() {
+    if (!pdfDocInstance) return;
+    const container = document.getElementById('pdfPagesContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (pdfViewMode === 'scroll') {
+        // Continuous scroll: render every page vertically
+        for (let p = 1; p <= pdfDocInstance.numPages; p++) {
+            renderPageOnCanvas(p, container);
+        }
+    } else {
+        // Single page mode: render active page
+        renderPageOnCanvas(currentPdfPage, container);
+    }
+}
+
+function renderPageOnCanvas(pageNum, container) {
+    const pageWrapper = document.createElement('div');
+    pageWrapper.className = 'pdf-page-card';
+    pageWrapper.id = 'pdf-page-wrap-' + pageNum;
+    pageWrapper.style.cssText = 'margin: 0 auto 18px auto; display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 920px;';
+
+    const pageBadge = document.createElement('div');
+    pageBadge.style.cssText = 'font-size: 0.74rem; color: #94a3b8; margin-bottom: 6px; font-weight: 700;';
+    pageBadge.innerText = '— Halaman ' + pageNum + ' dari ' + pdfDocInstance.numPages + ' —';
+
+    const canvas = document.createElement('canvas');
+    canvas.id = 'pdf-canvas-' + pageNum;
+    canvas.style.cssText = 'max-width: 100%; height: auto; box-shadow: 0 6px 20px rgba(0,0,0,0.5); border-radius: 6px; background: #ffffff;';
+
+    pageWrapper.appendChild(pageBadge);
+    pageWrapper.appendChild(canvas);
+    container.appendChild(pageWrapper);
+
+    pdfDocInstance.getPage(pageNum).then(function(page) {
+        const stage = document.getElementById('pdfPagesScrollStage');
+        const availableWidth = stage ? Math.max(300, stage.clientWidth - 28) : 600;
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+
+        let fitScale = 1.0;
+        if (availableWidth > 0 && unscaledViewport.width > 0) {
+            fitScale = availableWidth / unscaledViewport.width;
+        }
+
+        const effectiveScale = fitScale * pdfZoomLevel;
+        const viewport = page.getViewport({ scale: effectiveScale });
+        const pixelRatio = window.devicePixelRatio || 1;
+
+        canvas.width = Math.floor(viewport.width * pixelRatio);
+        canvas.height = Math.floor(viewport.height * pixelRatio);
+        canvas.style.width = Math.floor(viewport.width) + "px";
+        canvas.style.height = Math.floor(viewport.height) + "px";
+
+        const ctx = canvas.getContext('2d');
+        const transform = pixelRatio !== 1 ? [pixelRatio, 0, 0, pixelRatio, 0, 0] : null;
+
+        page.render({
+            canvasContext: ctx,
+            transform: transform,
+            viewport: viewport
+        });
+    });
+}
+
+function setPdfViewMode(mode) {
+    pdfViewMode = mode;
+    const btnScroll = document.getElementById('btnPdfModeScroll');
+    const btnSingle = document.getElementById('btnPdfModeSingle');
+    const singleNav = document.getElementById('pdfSingleNavControls');
+
+    if (mode === 'scroll') {
+        if (btnScroll) { btnScroll.style.background = '#2563eb'; btnScroll.style.color = '#fff'; }
+        if (btnSingle) { btnSingle.style.background = 'transparent'; btnSingle.style.color = '#cbd5e1'; }
+        if (singleNav) singleNav.style.display = 'none';
+    } else {
+        if (btnScroll) { btnScroll.style.background = 'transparent'; btnScroll.style.color = '#cbd5e1'; }
+        if (btnSingle) { btnSingle.style.background = '#2563eb'; btnSingle.style.color = '#fff'; }
+        if (singleNav) singleNav.style.display = 'inline-flex';
+    }
+
+    renderPdfDocument();
+}
+
+function goToPdfPage(num) {
+    if (!pdfDocInstance || num < 1 || num > pdfDocInstance.numPages) return;
+    currentPdfPage = num;
+
+    const pageNumEl = document.getElementById('pdfCurrentPageNum');
+    if (pageNumEl) pageNumEl.innerText = currentPdfPage;
+
+    const selectEl = document.getElementById('pdfPageSelect');
+    if (selectEl) selectEl.value = currentPdfPage;
+
+    if (pdfViewMode === 'scroll') {
+        const targetPage = document.getElementById('pdf-page-wrap-' + num);
+        if (targetPage) {
+            targetPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } else {
+        renderPdfDocument();
+    }
+}
+
+function nextPdfPage() {
+    if (pdfDocInstance && currentPdfPage < pdfDocInstance.numPages) {
+        goToPdfPage(currentPdfPage + 1);
+    }
+}
+
+function prevPdfPage() {
+    if (pdfDocInstance && currentPdfPage > 1) {
+        goToPdfPage(currentPdfPage - 1);
+    }
+}
+
+function zoomPdf(delta) {
+    pdfZoomLevel = Math.max(0.6, Math.min(2.5, pdfZoomLevel + delta));
+    renderPdfDocument();
+}
+
+function resetPdfZoom() {
+    pdfZoomLevel = 1.0;
+    renderPdfDocument();
+}
+
+// Attach Touch Swipe for Single Page PDF Mode
+(function initPdfTouchGestures() {
+    const stage = document.getElementById('pdfPagesScrollStage');
+    if (!stage) return;
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    stage.addEventListener('touchstart', function(e) {
+        touchStartX = e.changedTouches[0].screenX;
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+
+    stage.addEventListener('touchend', function(e) {
+        if (pdfViewMode !== 'single') return; // Only swipe when in single-page mode
+
+        const touchEndX = e.changedTouches[0].screenX;
+        const touchEndY = e.changedTouches[0].screenY;
+        const diffX = touchEndX - touchStartX;
+        const diffY = touchEndY - touchStartY;
+
+        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+            if (diffX < 0) {
+                nextPdfPage();
+            } else {
+                prevPdfPage();
+            }
+        }
+    }, { passive: true });
+})();
+
+// Auto-run PDF engine if document is PDF
+document.addEventListener('DOMContentLoaded', function() {
+    if (pdfTargetUrl) {
+        initPdfEngine();
+    }
+});
+
+// Re-render PDF on device orientation change (portrait <-> landscape on mobile/tablet)
+window.addEventListener('resize', (function() {
+    let resizeTimer;
+    return function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            if (pdfDocInstance) renderPdfDocument();
+        }, 250);
+    };
+})());
+
+// ============================================================
+// EMBED / OFFICE / GOOGLE SWITCHER
+// ============================================================
 const officeEmbedUrl = @json($material->office_embed_url);
 const googleEmbedUrl = @json($material->google_embed_url);
 
@@ -656,6 +1059,7 @@ function switchViewMode(mode) {
     }
 }
 
+// Keyboard shortcuts for desktop
 document.addEventListener('keydown', function(e) {
     if (totalSlides > 0) {
         if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
@@ -672,13 +1076,30 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
+// Fullscreen Toggle (Supports standard Fullscreen API + iOS Safari Pseudo-Fullscreen)
 function toggleViewerFullscreen() {
     const el = document.getElementById('materialViewerCard');
+    const exitBtn = document.getElementById('mobileFullscreenExitBtn');
+
+    // Check if on iOS / Mobile where requestFullscreen is unsupported or fails
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (isIOS || !document.fullscreenEnabled) {
+        // Toggle CSS Pseudo-Fullscreen
+        el.classList.toggle('viewer-mobile-fullscreen');
+        const isNowFs = el.classList.contains('viewer-mobile-fullscreen');
+        if (exitBtn) exitBtn.style.display = isNowFs ? 'block' : 'none';
+        document.body.style.overflow = isNowFs ? 'hidden' : '';
+        if (pdfDocInstance) setTimeout(renderPdfDocument, 100);
+        return;
+    }
+
     if (!document.fullscreenElement) {
         if (el.requestFullscreen) {
-            el.requestFullscreen();
-        } else if (el.webkitRequestFullscreen) {
-            el.webkitRequestFullscreen();
+            el.requestFullscreen().catch(function() {
+                el.classList.add('viewer-mobile-fullscreen');
+                if (exitBtn) exitBtn.style.display = 'block';
+            });
         }
     } else {
         if (document.exitFullscreen) {
@@ -686,15 +1107,104 @@ function toggleViewerFullscreen() {
         }
     }
 }
+
+document.addEventListener('fullscreenchange', function() {
+    const exitBtn = document.getElementById('mobileFullscreenExitBtn');
+    if (!document.fullscreenElement) {
+        const el = document.getElementById('materialViewerCard');
+        el.classList.remove('viewer-mobile-fullscreen');
+        if (exitBtn) exitBtn.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+});
 </script>
+
 <style>
 @keyframes fadeIn {
     from { opacity: 0; transform: scale(0.99); }
     to { opacity: 1; transform: scale(1); }
 }
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .slide-thumb-card:hover {
     border-color: #818cf8 !important;
 }
+
+/* Mobile Slide Overlay Arrows */
+.mobile-slide-tap-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 64px;
+    background: rgba(15, 23, 42, 0.45);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    font-size: 2.2rem;
+    font-weight: 300;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s;
+    backdrop-filter: blur(2px);
+    -webkit-tap-highlight-color: transparent;
+}
+.mobile-slide-tap-arrow.left {
+    left: 10px;
+}
+.mobile-slide-tap-arrow.right {
+    right: 10px;
+}
+.mobile-slide-tap-arrow:hover, .mobile-slide-tap-arrow:active {
+    background: rgba(37, 99, 235, 0.85);
+    transform: translateY(-50%) scale(1.05);
+}
+
+/* Mobile Helper Banner */
+@media (max-width: 992px) {
+    .mobile-material-banner {
+        display: flex !important;
+    }
+}
+
+/* Responsive adjustments for phones: iPhone SE (375px), iPhone 16 (393px), iPhone Pro Max (430px) */
+@media (max-width: 768px) {
+    #slideStage {
+        min-height: 240px !important;
+        max-height: 52vh !important;
+        padding: 8px !important;
+    }
+    .real-slide-item img {
+        max-height: 48vh !important;
+    }
+    .mobile-slide-tap-arrow {
+        width: 36px !important;
+        height: 52px !important;
+        font-size: 1.8rem !important;
+    }
+    #pdfPagesScrollStage {
+        min-height: 380px !important;
+        max-height: 75vh !important;
+        padding: 8px 4px !important;
+    }
+    .slide-thumb-card {
+        min-width: 85px !important;
+        padding: 4px !important;
+    }
+    .slide-thumb-card img {
+        width: 78px !important;
+        height: 44px !important;
+    }
+}
+
+/* Fullscreen Styles (Desktop API) */
 #materialViewerCard:fullscreen {
     border-radius: 0 !important;
     overflow-y: auto !important;
@@ -707,7 +1217,8 @@ function toggleViewerFullscreen() {
     display: flex;
     flex-direction: column;
 }
-#materialViewerCard:fullscreen #slideModeView {
+#materialViewerCard:fullscreen #slideModeView,
+#materialViewerCard:fullscreen #pdfSmartViewerSection {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -717,13 +1228,44 @@ function toggleViewerFullscreen() {
     max-height: none !important;
     min-height: calc(100vh - 180px) !important;
 }
-#materialViewerCard:fullscreen .pdf-viewer-wrap,
-#materialViewerCard:fullscreen .embed-viewer-wrap,
-#materialViewerCard:fullscreen #pptEmbedIframe {
-    height: 100% !important;
-    min-height: calc(100vh - 70px) !important;
+#materialViewerCard:fullscreen #pdfPagesScrollStage {
+    flex: 1;
+    max-height: none !important;
+    min-height: calc(100vh - 110px) !important;
 }
 #materialViewerCard:fullscreen .real-slide-item img {
+    max-height: calc(100vh - 200px) !important;
+}
+
+/* Pseudo-Fullscreen Styles (for iOS Safari on iPhone & iPad) */
+.viewer-mobile-fullscreen {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 999999 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    background: #0f172a !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+.viewer-mobile-fullscreen #viewerContainer {
+    flex: 1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+.viewer-mobile-fullscreen #slideStage {
+    flex: 1 !important;
+    min-height: calc(100vh - 180px) !important;
+    max-height: none !important;
+}
+.viewer-mobile-fullscreen #pdfPagesScrollStage {
+    flex: 1 !important;
+    min-height: calc(100vh - 120px) !important;
+    max-height: none !important;
+}
+.viewer-mobile-fullscreen .real-slide-item img {
     max-height: calc(100vh - 200px) !important;
 }
 </style>

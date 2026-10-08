@@ -7,8 +7,12 @@ use App\Models\Attendance;
 use App\Models\EnglishClass;
 use App\Models\Subject;
 use App\Models\User;
+use App\Services\SuperAdminAttendanceExportService;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SuperAdminAttendanceController extends Controller
 {
@@ -37,20 +41,14 @@ class SuperAdminAttendanceController extends Controller
         // 1. Teachers for this subject
         $teachers = User::where('role', User::ROLE_ADMIN)
             ->where('subject_id', $currentSubject->id)
+            ->orderBy('name', 'asc')
             ->get();
         $teacherIds = $teachers->pluck('id');
 
-        // 2. Students for this subject
+        // 2. Students for this subject (using scopeForSubject to cover all enrollments & classes)
         $students = User::where('role', User::ROLE_STUDENT)
-            ->where(function ($q) use ($currentSubject) {
-                $q->where('subject_id', $currentSubject->id)
-                  ->orWhereIn('class_name', function ($sub) use ($currentSubject) {
-                      $sub->select('name')->from('english_classes')->where('subject_id', $currentSubject->id);
-                  })
-                  ->orWhereHas('enrollments', function ($sub) use ($currentSubject) {
-                      $sub->where('subject_id', $currentSubject->id);
-                  });
-            })
+            ->forSubject($currentSubject->id)
+            ->orderBy('name', 'asc')
             ->get();
         $studentIds = $students->pluck('id');
 
@@ -129,5 +127,237 @@ class SuperAdminAttendanceController extends Controller
             'statusFilter',
             'search'
         ));
+    }
+
+    /**
+     * Store or manually record attendance for a user (Teacher or Student).
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'user_id' => ['required', 'exists:users,id'],
+            'date' => ['required', 'date'],
+            'status' => ['required', 'in:hadir,izin_keterangan,izin_tanpa_keterangan,belum_absen'],
+            'check_in_time' => ['nullable', 'string', 'max:8'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ], [
+            'user_id.required' => 'Pengguna wajib dipilih.',
+            'date.required' => 'Tanggal presensi wajib diisi.',
+            'status.required' => 'Status presensi wajib dipilih.',
+        ]);
+
+        $user = User::findOrFail($validated['user_id']);
+        $date = $validated['date'];
+
+        // If status is 'belum_absen', reset / remove attendance record
+        if ($validated['status'] === 'belum_absen') {
+            Attendance::where('user_id', $user->id)
+                ->whereDate('date', $date)
+                ->delete();
+
+            return back()->with('success', "Status presensi {$user->name} untuk tanggal " . Carbon::parse($date)->format('d/m/Y') . " berhasil diatur menjadi Belum Absen.");
+        }
+
+        $checkInTime = !empty($validated['check_in_time'])
+            ? $validated['check_in_time']
+            : now()->format('H:i:s');
+
+        // Ensure seconds format if only HH:mm given
+        if (strlen($checkInTime) === 5) {
+            $checkInTime .= ':00';
+        }
+
+        Attendance::updateOrCreate(
+            [
+                'user_id' => $user->id,
+                'date' => $date,
+            ],
+            [
+                'status' => $validated['status'],
+                'notes' => $validated['status'] === Attendance::STATUS_IZIN_KETERANGAN ? $validated['notes'] : ($validated['status'] === Attendance::STATUS_HADIR ? null : $validated['notes']),
+                'check_in_time' => $checkInTime,
+            ]
+        );
+
+        return back()->with('success', "Presensi untuk {$user->name} berhasil dicatat.");
+    }
+
+    /**
+     * Update an existing attendance record.
+     */
+    public function update(Request $request, Attendance $attendance): RedirectResponse
+    {
+        $validated = $request->validate([
+            'status' => ['required', 'in:hadir,izin_keterangan,izin_tanpa_keterangan,belum_absen'],
+            'date' => ['nullable', 'date'],
+            'check_in_time' => ['nullable', 'string', 'max:8'],
+            'notes' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $userName = $attendance->user->name ?? 'Pengguna';
+
+        // If Super Admin chooses "belum_absen", delete the attendance record
+        if ($validated['status'] === 'belum_absen') {
+            $attendance->delete();
+
+            return back()->with('success', "Presensi untuk {$userName} berhasil diubah menjadi Belum Absen (catatan presensi dihapus).");
+        }
+
+        $checkInTime = !empty($validated['check_in_time'])
+            ? $validated['check_in_time']
+            : ($attendance->check_in_time ?: now()->format('H:i:s'));
+
+        if (strlen($checkInTime) === 5) {
+            $checkInTime .= ':00';
+        }
+
+        $attendance->update([
+            'status' => $validated['status'],
+            'notes' => $validated['status'] === Attendance::STATUS_IZIN_KETERANGAN ? $validated['notes'] : ($validated['status'] === Attendance::STATUS_HADIR ? null : $validated['notes']),
+            'date' => $validated['date'] ?? $attendance->date,
+            'check_in_time' => $checkInTime,
+        ]);
+
+        return back()->with('success', "Data presensi untuk {$userName} berhasil diperbarui.");
+    }
+
+    /**
+     * Delete an individual attendance record.
+     */
+    public function destroy(Attendance $attendance): RedirectResponse
+    {
+        $userName = $attendance->user->name ?? 'Pengguna';
+        $dateFormatted = Carbon::parse($attendance->date)->format('d/m/Y');
+
+        $attendance->delete();
+
+        return back()->with('success', "Data presensi {$userName} pada {$dateFormatted} berhasil dihapus (status kembali Belum Absen).");
+    }
+
+    /**
+     * Bulk delete selected attendance records.
+     */
+    public function bulkDestroy(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:attendances,id'],
+        ], [
+            'ids.required' => 'Pilih minimal satu data presensi untuk dihapus.',
+            'ids.min' => 'Pilih minimal satu data presensi untuk dihapus.',
+        ]);
+
+        $count = Attendance::whereIn('id', $validated['ids'])->delete();
+
+        return back()->with('success', "Berhasil menghapus {$count} data presensi terpilih (status dikembalikan ke Belum Absen).");
+    }
+
+    /**
+     * Reset / delete all attendances with flexible scopes.
+     */
+    public function resetAll(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'subject_id' => ['required', 'exists:subjects,id'],
+            'scope' => ['required', 'in:filtered,tab,subject'],
+            'tab' => ['required', 'in:guru,siswa,all'],
+            'confirm_text' => ['required', 'in:RESET,reset'],
+        ], [
+            'confirm_text.in' => 'Konfirmasi kata RESET tidak cocok. Tindakan dibatalkan.',
+        ]);
+
+        $subject = Subject::findOrFail($validated['subject_id']);
+        $scope = $validated['scope'];
+        $tab = $validated['tab'];
+
+        // Get user IDs
+        $teacherIds = User::where('role', User::ROLE_ADMIN)
+            ->where('subject_id', $subject->id)
+            ->pluck('id');
+
+        $studentIds = User::where('role', User::ROLE_STUDENT)
+            ->forSubject($subject->id)
+            ->pluck('id');
+
+        if ($scope === 'subject') {
+            // Reset ALL attendance records for this subject (both teachers & students)
+            $allIds = $teacherIds->merge($studentIds);
+            $deletedCount = Attendance::whereIn('user_id', $allIds)->delete();
+
+            return back()->with('success', "Berhasil mereset seluruh {$deletedCount} data absensi mata pelajaran {$subject->name} (Guru & Siswa).");
+        }
+
+        if ($scope === 'tab') {
+            // Reset all records for current tab (either guru or siswa)
+            $targetIds = ($tab === 'siswa') ? $studentIds : $teacherIds;
+            $deletedCount = Attendance::whereIn('user_id', $targetIds)->delete();
+            $roleLabel = ($tab === 'siswa') ? 'Siswa' : 'Guru';
+
+            return back()->with('success', "Berhasil mereset seluruh {$deletedCount} data absensi {$roleLabel} pada mata pelajaran {$subject->name}.");
+        }
+
+        // scope === 'filtered' -> Reset only records matching current view filters
+        $targetIds = ($tab === 'siswa') ? $studentIds : $teacherIds;
+        $query = Attendance::whereIn('user_id', $targetIds);
+
+        if ($tab === 'siswa' && $request->filled('class_name') && $request->input('class_name') !== 'all') {
+            $className = $request->input('class_name');
+            $query->whereHas('user', fn($q) => $q->where('class_name', $className));
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('date', $request->input('date'));
+        }
+
+        if ($request->filled('month')) {
+            $month = $request->input('month');
+            $query->whereYear('date', substr($month, 0, 4))
+                  ->whereMonth('date', substr($month, 5, 2));
+        }
+
+        if ($request->filled('status') && $request->input('status') !== 'all') {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->whereHas('user', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%")
+                  ->orWhere('class_name', 'like', "%{$search}%")
+                  ->orWhere('division', 'like', "%{$search}%");
+            });
+        }
+
+        $deletedCount = $query->delete();
+
+        return back()->with('success', "Berhasil menghapus {$deletedCount} data absensi yang sesuai dengan filter aktif saat ini.");
+    }
+
+    /**
+     * Export attendance data to Excel for the chosen subject and filters.
+     */
+    public function export(Request $request): BinaryFileResponse|RedirectResponse
+    {
+        $subjectId = (int)$request->input('subject_id', 1);
+        $subject = Subject::findOrFail($subjectId);
+        $tab = $request->input('tab', 'siswa'); // 'siswa', 'guru', or 'both'
+
+        $filters = [
+            'date' => $request->input('date'),
+            'month' => $request->input('month'),
+            'class_name' => $request->input('class_name'),
+            'status' => $request->input('status'),
+            'search' => $request->input('search'),
+        ];
+
+        try {
+            $filePath = SuperAdminAttendanceExportService::generate($subject, $tab, $filters);
+            $downloadName = basename($filePath);
+
+            return response()->download($filePath, $downloadName)->deleteFileAfterSend(true);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Gagal mengekspor file absensi: ' . $e->getMessage());
+        }
     }
 }
