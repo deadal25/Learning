@@ -31,10 +31,15 @@ foreach ($dirs as $dir) {
 // Siapkan database SQLite dari bundle proyek ke direktori /tmp/database.sqlite (read-write)
 $tmpDb = $tmp . '/database.sqlite';
 $bundledDb = __DIR__ . '/../database/database.sqlite';
-if (!file_exists($tmpDb) || filesize($tmpDb) === 0 || (file_exists($bundledDb) && filemtime($bundledDb) > @filemtime($tmpDb))) {
+$versionFile = $tmp . '/.db_version';
+$bundledVersion = @filemtime($bundledDb) . '_' . @filesize($bundledDb);
+$installedVersion = file_exists($versionFile) ? @file_get_contents($versionFile) : '';
+
+if (!file_exists($tmpDb) || filesize($tmpDb) === 0 || $installedVersion !== $bundledVersion) {
     if (file_exists($bundledDb) && filesize($bundledDb) > 0) {
         @copy($bundledDb, $tmpDb);
         @chmod($tmpDb, 0666);
+        @file_put_contents($versionFile, $bundledVersion);
     } else {
         @touch($tmpDb);
         @chmod($tmpDb, 0666);
