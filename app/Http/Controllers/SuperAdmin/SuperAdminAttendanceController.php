@@ -82,12 +82,25 @@ class SuperAdminAttendanceController extends Controller
             $query->where('status', $statusFilter);
         }
 
-        if ($search) {
-            $query->whereHas('user', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('class_name', 'like', "%{$search}%")
-                  ->orWhere('division', 'like', "%{$search}%");
+        if ($search = trim((string)$request->input('search'))) {
+            $term = '%' . mb_strtolower($search) . '%';
+            $words = array_filter(explode(' ', mb_strtolower($search)));
+            $query->whereHas('user', function ($q) use ($term, $words) {
+                $q->where(function ($sub) use ($term, $words) {
+                    $sub->whereRaw('LOWER(name) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(nrp, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(email, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(class_name, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(division, \'\')) LIKE ?', [$term]);
+
+                    if (count($words) > 1) {
+                        $sub->orWhere(function ($allWords) use ($words) {
+                            foreach ($words as $w) {
+                                $allWords->whereRaw('LOWER(name) LIKE ?', ['%' . $w . '%']);
+                            }
+                        });
+                    }
+                });
             });
         }
 
@@ -320,12 +333,25 @@ class SuperAdminAttendanceController extends Controller
         }
 
         if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->whereHas('user', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('class_name', 'like', "%{$search}%")
-                  ->orWhere('division', 'like', "%{$search}%");
+            $search = trim((string)$request->input('search'));
+            $term = '%' . mb_strtolower($search) . '%';
+            $words = array_filter(explode(' ', mb_strtolower($search)));
+            $query->whereHas('user', function ($q) use ($term, $words) {
+                $q->where(function ($sub) use ($term, $words) {
+                    $sub->whereRaw('LOWER(name) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(nrp, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(email, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(class_name, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(division, \'\')) LIKE ?', [$term]);
+
+                    if (count($words) > 1) {
+                        $sub->orWhere(function ($allWords) use ($words) {
+                            foreach ($words as $w) {
+                                $allWords->whereRaw('LOWER(name) LIKE ?', ['%' . $w . '%']);
+                            }
+                        });
+                    }
+                });
             });
         }
 

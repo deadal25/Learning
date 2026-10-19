@@ -17,12 +17,24 @@ class AdminManagementController extends Controller
     {
         $query = User::where('role', User::ROLE_ADMIN)->with('subject');
 
-        if ($search = $request->input('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhere('class_code', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+        if ($search = trim((string)$request->input('search'))) {
+            $term = '%' . mb_strtolower($search) . '%';
+            $words = array_filter(explode(' ', mb_strtolower($search)));
+            $query->where(function ($q) use ($term, $words) {
+                $q->where(function ($sub) use ($term, $words) {
+                    $sub->whereRaw('LOWER(name) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(email, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(class_code, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$term]);
+
+                    if (count($words) > 1) {
+                        $sub->orWhere(function ($allWords) use ($words) {
+                            foreach ($words as $w) {
+                                $allWords->whereRaw('LOWER(name) LIKE ?', ['%' . $w . '%']);
+                            }
+                        });
+                    }
+                });
             });
         }
 

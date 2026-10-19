@@ -106,7 +106,7 @@
             </div>
 
             <div style="flex: 1; min-width: 220px;">
-                <input type="text" name="search" class="form-control" placeholder="Cari nama, email, divisi, atau kelas..." value="{{ request('search') }}">
+                <input type="text" name="search" class="form-control" placeholder="Cari nama siswa, NRP, email, divisi, atau kelas..." value="{{ request('search') }}">
             </div>
 
             <div>
