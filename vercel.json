@@ -62,24 +62,7 @@
     "CACHE_STORE": "array",
     "SESSION_DRIVER": "cookie",
     "LOG_CHANNEL": "stderr",
-    "DB_CONNECTION": "pgsql",
-    "DATABASE_URL": "postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
-    "POSTGRES_URL": "postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
-    "DATABASE_URL_UNPOOLED": "postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require",
-    "DB_HOST": "ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech",
-    "PGHOST": "ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech",
-    "POSTGRES_HOST": "ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech",
-    "DB_PORT": "5432",
-    "PGPORT": "5432",
-    "POSTGRES_PORT": "5432",
-    "DB_DATABASE": "neondb",
-    "PGDATABASE": "neondb",
-    "POSTGRES_DATABASE": "neondb",
-    "DB_USERNAME": "neondb_owner",
-    "PGUSER": "neondb_owner",
-    "POSTGRES_USER": "neondb_owner",
-    "DB_PASSWORD": "npg_h3QAnBczWKd0",
-    "PGPASSWORD": "npg_h3QAnBczWKd0",
-    "POSTGRES_PASSWORD": "npg_h3QAnBczWKd0"
+    "DB_CONNECTION": "sqlite",
+    "DB_DATABASE": "/tmp/database.sqlite"
   }
 }

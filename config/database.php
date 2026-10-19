@@ -5,11 +5,7 @@ use Pdo\Mysql;
 
 $isVercel = !empty($_ENV['VERCEL']) || !empty($_SERVER['VERCEL']) || getenv('VERCEL');
 
-$defaultNeonUrl = 'postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require';
 $rawDbUrl = env('DATABASE_URL_UNPOOLED', env('DATABASE_URL', env('POSTGRES_URL', env('DB_URL', ''))));
-if (empty($rawDbUrl) && $isVercel) {
-    $rawDbUrl = $defaultNeonUrl;
-}
 
 if (!empty($rawDbUrl)) {
     $rawDbUrl = str_replace('-pooler.', '.', $rawDbUrl);
@@ -40,9 +36,9 @@ if (str_contains($pgHost, 'neon.tech') && !str_contains($pgSslMode, 'endpoint=')
     }
 }
 
-$selectedDefault = env('DB_CONNECTION');
-if (empty($selectedDefault) || ($selectedDefault === 'sqlite' && ($autoDefault === 'pgsql' || $isVercel))) {
-    $selectedDefault = $autoDefault;
+$selectedDefault = env('DB_CONNECTION', $autoDefault);
+if (empty($selectedDefault)) {
+    $selectedDefault = 'sqlite';
 }
 
 return [

@@ -28,23 +28,44 @@ foreach ($dirs as $dir) {
     }
 }
 
-// Konfigurasi Database Cloud (Neon PostgreSQL)
-$defaultNeonUrl = 'postgresql://neondb_owner:npg_h3QAnBczWKd0@ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require';
-$envDbUrl = getenv('DATABASE_URL_UNPOOLED')
-    ?: (getenv('DATABASE_URL')
-    ?: (getenv('POSTGRES_URL')
-    ?: (getenv('POSTGRES_URL_NON_POOLING')
-    ?: ($_ENV['DATABASE_URL']
-    ?? ($_ENV['POSTGRES_URL']
-    ?? ($_SERVER['DATABASE_URL']
-    ?? ($_SERVER['POSTGRES_URL']
-    ?? $defaultNeonUrl)))))));
+// Siapkan database SQLite dari bundle proyek ke direktori /tmp/database.sqlite (read-write)
+$tmpDb = $tmp . '/database.sqlite';
+$bundledDb = __DIR__ . '/../database/database.sqlite';
+if (!file_exists($tmpDb) || filesize($tmpDb) === 0 || (file_exists($bundledDb) && filemtime($bundledDb) > @filemtime($tmpDb))) {
+    if (file_exists($bundledDb) && filesize($bundledDb) > 0) {
+        @copy($bundledDb, $tmpDb);
+        @chmod($tmpDb, 0666);
+    } else {
+        @touch($tmpDb);
+        @chmod($tmpDb, 0666);
+    }
+}
 
-// Cek apakah database eksternal digunakan
-$hasExternalDb = !empty($envDbUrl)
-    || in_array(strtolower((string)(getenv('DB_CONNECTION') ?: ($_ENV['DB_CONNECTION'] ?? ''))), ['pgsql', 'postgres', 'mysql', 'mariadb']);
+// Bersihkan variabel lingkungan database eksternal agar tidak menimpa SQLite
+$keysToClear = [
+    'DATABASE_URL',
+    'POSTGRES_URL',
+    'DATABASE_URL_UNPOOLED',
+    'POSTGRES_URL_NON_POOLING',
+    'DB_HOST',
+    'PGHOST',
+    'POSTGRES_HOST',
+    'DB_PORT',
+    'PGPORT',
+    'POSTGRES_PORT',
+    'DB_USERNAME',
+    'PGUSER',
+    'POSTGRES_USER',
+    'DB_PASSWORD',
+    'PGPASSWORD',
+    'POSTGRES_PASSWORD',
+];
+foreach ($keysToClear as $key) {
+    putenv($key);
+    unset($_ENV[$key], $_SERVER[$key]);
+}
 
-// Set environment variables penting agar Laravel di Vercel menggunakan PostgreSQL secara persisten
+// Set environment variables penting untuk Vercel Serverless
 $envVars = [
     'APP_NAME' => 'Learning Musashi',
     'APP_ENV' => 'production',
@@ -62,31 +83,9 @@ $envVars = [
     'SESSION_DRIVER' => 'cookie',
     'LOG_CHANNEL' => 'stderr',
     'VERCEL' => '1',
-    'DB_CONNECTION' => 'pgsql',
-    'DATABASE_URL' => $envDbUrl,
-    'POSTGRES_URL' => $envDbUrl,
-    'DATABASE_URL_UNPOOLED' => $envDbUrl,
-    'DB_HOST' => 'ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech',
-    'PGHOST' => 'ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech',
-    'POSTGRES_HOST' => 'ep-billowing-fire-b8ote5i9.c-14.us-east-1.aws.neon.tech',
-    'DB_PORT' => '5432',
-    'PGPORT' => '5432',
-    'POSTGRES_PORT' => '5432',
-    'DB_DATABASE' => 'neondb',
-    'PGDATABASE' => 'neondb',
-    'POSTGRES_DATABASE' => 'neondb',
-    'DB_USERNAME' => 'neondb_owner',
-    'PGUSER' => 'neondb_owner',
-    'POSTGRES_USER' => 'neondb_owner',
-    'DB_PASSWORD' => 'npg_h3QAnBczWKd0',
-    'PGPASSWORD' => 'npg_h3QAnBczWKd0',
-    'POSTGRES_PASSWORD' => 'npg_h3QAnBczWKd0',
+    'DB_CONNECTION' => 'sqlite',
+    'DB_DATABASE' => $tmpDb,
 ];
-
-if (!$hasExternalDb) {
-    $envVars['DB_CONNECTION'] = 'sqlite';
-    $envVars['DB_DATABASE'] = $tmp . '/database.sqlite';
-}
 
 foreach ($envVars as $key => $val) {
     putenv("{$key}={$val}");
@@ -116,19 +115,6 @@ if (!is_dir($tmpStorageMaterials)) {
     @mkdir($tmpStorageMaterials, 0777, true);
 }
 ini_set('upload_tmp_dir', $tmp);
-
-// Siapkan database SQLite dari bundle HANYA jika fallback SQLite yang digunakan
-if (!$hasExternalDb) {
-    $tmpDb = $tmp . '/database.sqlite';
-    $bundledDb = __DIR__ . '/../database/database.sqlite';
-    if (!file_exists($tmpDb) || (file_exists($bundledDb) && filemtime($bundledDb) > @filemtime($tmpDb))) {
-        if (file_exists($bundledDb)) {
-            @copy($bundledDb, $tmpDb);
-        } else {
-            @touch($tmpDb);
-        }
-    }
-}
 
 // Tangkap shutdown fatal error agar tampil di browser
 register_shutdown_function(function () {
