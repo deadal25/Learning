@@ -74,16 +74,21 @@ $getEnvVal = function ($key, $default = null) {
     return $default;
 };
 
-// Default Neon PostgreSQL connection configuration
-$defaultNeonUrl = 'postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require';
-$defaultNeonUnpooled = 'postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require';
-$defaultNeonHost = 'ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech';
+// Neon PostgreSQL connection configuration baru
+$targetNeonHost = 'ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech';
+$targetNeonUrl = 'postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require';
+
+// Pastikan jika ada sisa variabel lama (ep-billowing-flower yang kena limit) di Vercel Dashboard langsung digantikan ke database baru
+$currentDbUrl = $getEnvVal('DATABASE_URL', $targetNeonUrl);
+if (str_contains($currentDbUrl, 'ep-billowing-flower') || !str_contains($currentDbUrl, 'ep-restless-dust-b57sfv5z')) {
+    $currentDbUrl = $targetNeonUrl;
+}
 
 // Set environment variables penting untuk Vercel Serverless
 $envVars = [
     'APP_NAME' => 'Learning Musashi',
     'APP_ENV' => 'production',
-    'APP_DEBUG' => 'true',
+    'APP_DEBUG' => 'false',
     'APP_KEY' => 'base64:KZI03qL48lP/EqiTvXHGNcIxg/gRIAxqn7DqgwTjVlE=',
     'APP_URL' => 'https://learning-musashi.vercel.app',
     'APP_STORAGE' => $tmpStorage,
@@ -98,19 +103,19 @@ $envVars = [
     'LOG_CHANNEL' => 'stderr',
     'VERCEL' => '1',
     'DB_CONNECTION' => 'pgsql',
-    'DATABASE_URL' => $getEnvVal('DATABASE_URL', $defaultNeonUrl),
-    'POSTGRES_URL' => $getEnvVal('POSTGRES_URL', $defaultNeonUrl),
-    'DATABASE_URL_UNPOOLED' => $getEnvVal('DATABASE_URL_UNPOOLED', $defaultNeonUnpooled),
-    'POSTGRES_URL_NON_POOLING' => $getEnvVal('POSTGRES_URL_NON_POOLING', $defaultNeonUnpooled),
-    'PGHOST' => $getEnvVal('PGHOST', $defaultNeonHost),
-    'PGUSER' => $getEnvVal('PGUSER', 'neondb_owner'),
-    'PGDATABASE' => $getEnvVal('PGDATABASE', 'neondb'),
-    'PGPASSWORD' => $getEnvVal('PGPASSWORD', 'npg_0zyigPE3WdbN'),
-    'DB_HOST' => $getEnvVal('DB_HOST', $defaultNeonHost),
+    'DATABASE_URL' => $currentDbUrl,
+    'POSTGRES_URL' => $currentDbUrl,
+    'DATABASE_URL_UNPOOLED' => $targetNeonUrl,
+    'POSTGRES_URL_NON_POOLING' => $targetNeonUrl,
+    'PGHOST' => $targetNeonHost,
+    'PGUSER' => 'neondb_owner',
+    'PGDATABASE' => 'neondb',
+    'PGPASSWORD' => 'npg_0zyigPE3WdbN',
+    'DB_HOST' => $targetNeonHost,
     'DB_PORT' => '5432',
-    'DB_DATABASE' => $getEnvVal('DB_DATABASE', 'neondb'),
-    'DB_USERNAME' => $getEnvVal('DB_USERNAME', 'neondb_owner'),
-    'DB_PASSWORD' => $getEnvVal('DB_PASSWORD', 'npg_0zyigPE3WdbN'),
+    'DB_DATABASE' => 'neondb',
+    'DB_USERNAME' => 'neondb_owner',
+    'DB_PASSWORD' => 'npg_0zyigPE3WdbN',
     'DB_DATABASE_SQLITE_FALLBACK' => $tmpDb,
 ];
 
