@@ -98,6 +98,16 @@ class EnglishAttendanceExportService
         }
 
         // Build 15 student rows
+        $studentIds = $students->pluck('id')->toArray();
+        $latestScores = !empty($studentIds)
+            ? UserLevelStatus::whereIn('user_id', $studentIds)
+                ->where('points', '>', 0)
+                ->orderBy('updated_at', 'desc')
+                ->get()
+                ->groupBy('user_id')
+                ->map(fn($group) => $group->first()->points)
+            : collect();
+
         $rows = [];
         for ($i = 0; $i < 15; $i++) {
             $no = $i + 1;
@@ -107,10 +117,7 @@ class EnglishAttendanceExportService
                 $status = $att?->status ?? 'belum_absen';
                 $notes = $att?->notes ?? '';
 
-                $latestScore = UserLevelStatus::where('user_id', $student->id)
-                    ->where('points', '>', 0)
-                    ->latest('updated_at')
-                    ->value('points');
+                $latestScore = $latestScores->get($student->id);
 
                 $examBase = $latestScore ? min(100, max(60, (int)$latestScore)) : ($status === 'hadir' ? 85 : null);
 
@@ -231,16 +238,23 @@ class EnglishAttendanceExportService
             ->keyBy('user_id');
 
         // 3. Prepare student array for export
+        $studentIds = $students->pluck('id')->toArray();
+        $latestScores = !empty($studentIds)
+            ? UserLevelStatus::whereIn('user_id', $studentIds)
+                ->where('points', '>', 0)
+                ->orderBy('updated_at', 'desc')
+                ->get()
+                ->groupBy('user_id')
+                ->map(fn($group) => $group->first()->points)
+            : collect();
+
         $studentsData = [];
         foreach ($students as $student) {
             $att = $attendances->get($student->id);
             $status = $att?->status ?? 'belum_absen';
             $notes = $att?->notes ?? '';
 
-            $latestScore = UserLevelStatus::where('user_id', $student->id)
-                ->where('points', '>', 0)
-                ->latest('updated_at')
-                ->value('points');
+            $latestScore = $latestScores->get($student->id);
 
             $examBase = $latestScore ? min(100, max(60, (int)$latestScore)) : ($status === 'hadir' ? 85 : null);
 

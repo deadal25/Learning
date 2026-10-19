@@ -58,19 +58,10 @@ class StudentDashboardController extends Controller
             ])
             ->get();
 
-        $unlockedLevelIds = UserLevelStatus::where('user_id', $user->id)
-            ->where('is_unlocked', true)
-            ->pluck('level_id')
-            ->toArray();
-
-        $completedLevelIds = UserLevelStatus::where('user_id', $user->id)
-            ->where('is_completed', true)
-            ->pluck('level_id')
-            ->toArray();
-
-        $levelScores = UserLevelStatus::where('user_id', $user->id)
-            ->pluck('points', 'level_id')
-            ->toArray();
+        $userStatuses = UserLevelStatus::where('user_id', $user->id)->get();
+        $unlockedLevelIds = $userStatuses->where('is_unlocked', true)->pluck('level_id')->toArray();
+        $completedLevelIds = $userStatuses->where('is_completed', true)->pluck('level_id')->toArray();
+        $levelScores = $userStatuses->pluck('points', 'level_id')->toArray();
 
         $stats = [
             'total_subjects' => $subjects->count(),
