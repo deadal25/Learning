@@ -5,6 +5,19 @@ ini_set('display_errors', '0');
 ini_set('display_startup_errors', '0');
 error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_WARNING);
 
+// Tangkap shutdown fatal error agar selalu tampil jelas bila terjadi crash
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        http_response_code(500);
+        echo "<div style='font-family:sans-serif;padding:24px;background:#fef2f2;border:1px solid #f87171;border-radius:8px;margin:20px;'>";
+        echo "<h2 style='color:#991b1b;margin-top:0;'>Fatal Error Terdeteksi di Vercel</h2>";
+        echo "<p><strong>Pesan:</strong> " . htmlspecialchars($error['message']) . "</p>";
+        echo "<p><strong>File:</strong> " . htmlspecialchars($error['file']) . " (Baris: " . $error['line'] . ")</p>";
+        echo "</div>";
+    }
+});
+
 // Direktori storage dan cache sementara di /tmp
 $tmp = '/tmp';
 $tmpStorage = $tmp . '/storage';
@@ -28,7 +41,7 @@ foreach ($dirs as $dir) {
     }
 }
 
-// Siapkan database SQLite dari bundle proyek ke direktori /tmp/database.sqlite (read-write)
+// Siapkan database SQLite dari bundle proyek ke direktori /tmp/database.sqlite (read-write fallback)
 $tmpDb = $tmp . '/database.sqlite';
 $bundledDb = __DIR__ . '/../database/database.sqlite';
 $versionFile = $tmp . '/.db_version';
@@ -45,6 +58,21 @@ if (!file_exists($tmpDb) || filesize($tmpDb) === 0 || $installedVersion !== $bun
         @chmod($tmpDb, 0666);
     }
 }
+
+// Helper untuk membaca env tanpa bergantung pada helper Laravel env() yang belum termuat
+$getEnvVal = function ($key, $default = null) {
+    $val = getenv($key);
+    if ($val !== false && $val !== '') {
+        return $val;
+    }
+    if (isset($_ENV[$key]) && $_ENV[$key] !== '') {
+        return $_ENV[$key];
+    }
+    if (isset($_SERVER[$key]) && $_SERVER[$key] !== '') {
+        return $_SERVER[$key];
+    }
+    return $default;
+};
 
 // Default Neon PostgreSQL connection configuration
 $defaultNeonUrl = 'postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
@@ -70,19 +98,19 @@ $envVars = [
     'LOG_CHANNEL' => 'stderr',
     'VERCEL' => '1',
     'DB_CONNECTION' => 'pgsql',
-    'DATABASE_URL' => env('DATABASE_URL') ?: $defaultNeonUrl,
-    'POSTGRES_URL' => env('POSTGRES_URL') ?: $defaultNeonUrl,
-    'DATABASE_URL_UNPOOLED' => env('DATABASE_URL_UNPOOLED') ?: $defaultNeonUnpooled,
-    'POSTGRES_URL_NON_POOLING' => env('POSTGRES_URL_NON_POOLING') ?: $defaultNeonUnpooled,
-    'PGHOST' => env('PGHOST') ?: $defaultNeonHost,
-    'PGUSER' => env('PGUSER') ?: 'neondb_owner',
-    'PGDATABASE' => env('PGDATABASE') ?: 'neondb',
-    'PGPASSWORD' => env('PGPASSWORD') ?: 'npg_0zyigPE3WdbN',
-    'DB_HOST' => env('DB_HOST') ?: $defaultNeonHost,
+    'DATABASE_URL' => $getEnvVal('DATABASE_URL', $defaultNeonUrl),
+    'POSTGRES_URL' => $getEnvVal('POSTGRES_URL', $defaultNeonUrl),
+    'DATABASE_URL_UNPOOLED' => $getEnvVal('DATABASE_URL_UNPOOLED', $defaultNeonUnpooled),
+    'POSTGRES_URL_NON_POOLING' => $getEnvVal('POSTGRES_URL_NON_POOLING', $defaultNeonUnpooled),
+    'PGHOST' => $getEnvVal('PGHOST', $defaultNeonHost),
+    'PGUSER' => $getEnvVal('PGUSER', 'neondb_owner'),
+    'PGDATABASE' => $getEnvVal('PGDATABASE', 'neondb'),
+    'PGPASSWORD' => $getEnvVal('PGPASSWORD', 'npg_0zyigPE3WdbN'),
+    'DB_HOST' => $getEnvVal('DB_HOST', $defaultNeonHost),
     'DB_PORT' => '5432',
-    'DB_DATABASE' => env('DB_DATABASE') ?: 'neondb',
-    'DB_USERNAME' => env('DB_USERNAME') ?: 'neondb_owner',
-    'DB_PASSWORD' => env('DB_PASSWORD') ?: 'npg_0zyigPE3WdbN',
+    'DB_DATABASE' => $getEnvVal('DB_DATABASE', 'neondb'),
+    'DB_USERNAME' => $getEnvVal('DB_USERNAME', 'neondb_owner'),
+    'DB_PASSWORD' => $getEnvVal('DB_PASSWORD', 'npg_0zyigPE3WdbN'),
     'DB_DATABASE_SQLITE_FALLBACK' => $tmpDb,
 ];
 
@@ -102,6 +130,15 @@ $_SERVER['HTTP_X_FORWARDED_PORT'] = '443';
 if (empty($_SERVER['HTTP_HOST'])) {
     $_SERVER['HTTP_HOST'] = 'learning-musashi.vercel.app';
 }
+if (empty($_SERVER['REMOTE_ADDR'])) {
+    $_SERVER['REMOTE_ADDR'] = '127.0.0.1';
+}
+if (empty($_SERVER['REQUEST_METHOD'])) {
+    $_SERVER['REQUEST_METHOD'] = 'GET';
+}
+if (empty($_SERVER['REQUEST_URI'])) {
+    $_SERVER['REQUEST_URI'] = '/';
+}
 
 // Siapkan direktori storage public yang bisa ditulisi (read-write) untuk upload materi baru di Vercel
 $tmpStoragePublic = $tmpStorage . '/app/public';
@@ -116,19 +153,6 @@ if (!is_dir($tmpStorageMaterials)) {
     @mkdir($tmpStorageMaterials, 0777, true);
 }
 ini_set('upload_tmp_dir', $tmp);
-
-// Tangkap shutdown fatal error agar tampil di browser
-register_shutdown_function(function () {
-    $error = error_get_last();
-    if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        http_response_code(500);
-        echo "<div style='font-family:sans-serif;padding:24px;background:#fef2f2;border:1px solid #f87171;border-radius:8px;margin:20px;'>";
-        echo "<h2 style='color:#991b1b;margin-top:0;'>Fatal Error Terdeteksi di Vercel</h2>";
-        echo "<p><strong>Pesan:</strong> " . htmlspecialchars($error['message']) . "</p>";
-        echo "<p><strong>File:</strong> " . htmlspecialchars($error['file']) . " (Baris: " . $error['line'] . ")</p>";
-        echo "</div>";
-    }
-});
 
 try {
     require __DIR__ . '/../public/index.php';
