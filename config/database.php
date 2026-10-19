@@ -9,8 +9,11 @@ $rawDbUrl = env('DATABASE_URL_UNPOOLED', env('DATABASE_URL', env('POSTGRES_URL',
 
 if (!empty($rawDbUrl)) {
     $rawDbUrl = str_replace('-pooler.', '.', $rawDbUrl);
-    $rawDbUrl = preg_replace('/([?&])(sslmode|options|channel_binding)=[^&]*(&|$)/', '$1', $rawDbUrl);
-    $rawDbUrl = rtrim($rawDbUrl, '?&');
+    $rawDbUrl = preg_replace('/([?&])(options|channel_binding)=[^&]*(&|$)/', '$1', $rawDbUrl);
+    $rawDbUrl = preg_replace('/[?&]+$/', '', $rawDbUrl);
+    if (!str_contains($rawDbUrl, 'sslmode=')) {
+        $rawDbUrl .= (str_contains($rawDbUrl, '?') ? '&' : '?') . 'sslmode=require';
+    }
 }
 
 $autoDefault = 'sqlite';
@@ -28,13 +31,7 @@ if (empty($pgHost) && !empty($rawDbUrl)) {
     $pgHost = $parsedUrl['host'] ?? '';
 }
 
-$pgSslMode = env('DB_SSLMODE', env('POSTGRES_SSLMODE', 'prefer'));
-if (str_contains($pgHost, 'neon.tech') && !str_contains($pgSslMode, 'endpoint=')) {
-    $ep = explode('.', $pgHost)[0];
-    if (!empty($ep)) {
-        $pgSslMode = rtrim($pgSslMode, ';') . ";options='endpoint={$ep}'";
-    }
-}
+$pgSslMode = env('DB_SSLMODE', env('POSTGRES_SSLMODE', 'require'));
 
 $selectedDefault = env('DB_CONNECTION', $autoDefault);
 if (empty($selectedDefault)) {

@@ -75,7 +75,7 @@ $getEnvVal = function ($key, $default = null) {
 };
 
 // Default Neon PostgreSQL connection configuration
-$defaultNeonUrl = 'postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+$defaultNeonUrl = 'postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require';
 $defaultNeonUnpooled = 'postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require';
 $defaultNeonHost = 'ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech';
 
@@ -83,7 +83,7 @@ $defaultNeonHost = 'ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech';
 $envVars = [
     'APP_NAME' => 'Learning Musashi',
     'APP_ENV' => 'production',
-    'APP_DEBUG' => 'false',
+    'APP_DEBUG' => 'true',
     'APP_KEY' => 'base64:KZI03qL48lP/EqiTvXHGNcIxg/gRIAxqn7DqgwTjVlE=',
     'APP_URL' => 'https://learning-musashi.vercel.app',
     'APP_STORAGE' => $tmpStorage,
