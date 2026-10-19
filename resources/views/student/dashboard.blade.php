@@ -184,7 +184,7 @@
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <a href="{{ route('student.attendance.index') }}" class="btn btn-secondary btn-sm">
-                        Lihat Riwayat Lengkap &rarr;
+                        Lihat Riwayat &rarr;
                     </a>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('dashAttendanceForm').style.display = document.getElementById('dashAttendanceForm').style.display === 'none' ? 'block' : 'none'">
                         ✏ Ubah Status
