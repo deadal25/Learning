@@ -32,6 +32,36 @@ class Material extends Model
         'is_active' => 'boolean',
     ];
 
+    public const DEFAULT_SELECT = [
+        'id',
+        'level_id',
+        'teacher_id',
+        'class_name',
+        'title',
+        'description',
+        'content',
+        'file_path',
+        'file_name',
+        'file_type',
+        'slide_url',
+        'order',
+        'is_active',
+        'created_at',
+        'updated_at',
+    ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('excludeHeavyPayload', function ($builder) {
+            $builder->select(array_map(fn($col) => 'materials.' . $col, static::DEFAULT_SELECT));
+        });
+    }
+
+    public function scopeWithFileContent($query)
+    {
+        return $query->withoutGlobalScope('excludeHeavyPayload');
+    }
+
     public function scopeActive($query)
     {
         return $query->where('is_active', true);

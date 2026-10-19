@@ -215,10 +215,11 @@ Route::match(['GET', 'HEAD', 'OPTIONS'], '/storage/{path}', function (string $pa
         // 4. Pulihkan dari Database Cloud jika berkas belum ada di direktori /tmp
         try {
             $cleanPath = ltrim($path, '/');
-            $mat = \App\Models\Material::where('file_path', $cleanPath)
+            $mat = \App\Models\Material::withFileContent()
+                ->where('file_path', $cleanPath)
                 ->orWhere('file_path', 'materials/' . $cleanPath)
                 ->orWhere('file_path', basename($cleanPath))
-                ->first();
+                ->first(['id', 'file_path', 'file_content']);
 
             if ($mat && !empty($mat->file_content)) {
                 $dir = dirname($tmpPath);
