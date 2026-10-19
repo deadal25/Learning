@@ -62,7 +62,19 @@
     "CACHE_STORE": "array",
     "SESSION_DRIVER": "cookie",
     "LOG_CHANNEL": "stderr",
-    "DB_CONNECTION": "sqlite",
-    "DB_DATABASE": "/tmp/database.sqlite"
+    "DB_CONNECTION": "pgsql",
+    "DATABASE_URL": "postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+    "POSTGRES_URL": "postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+    "DATABASE_URL_UNPOOLED": "postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require",
+    "POSTGRES_URL_NON_POOLING": "postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require",
+    "PGHOST": "ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech",
+    "PGUSER": "neondb_owner",
+    "PGDATABASE": "neondb",
+    "PGPASSWORD": "npg_0zyigPE3WdbN",
+    "DB_HOST": "ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech",
+    "DB_PORT": "5432",
+    "DB_DATABASE": "neondb",
+    "DB_USERNAME": "neondb_owner",
+    "DB_PASSWORD": "npg_0zyigPE3WdbN"
   }
 }

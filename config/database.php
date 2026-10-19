@@ -9,7 +9,7 @@ $rawDbUrl = env('DATABASE_URL_UNPOOLED', env('DATABASE_URL', env('POSTGRES_URL',
 
 if (!empty($rawDbUrl)) {
     $rawDbUrl = str_replace('-pooler.', '.', $rawDbUrl);
-    $rawDbUrl = preg_replace('/([?&])(sslmode|options)=[^&]*(&|$)/', '$1', $rawDbUrl);
+    $rawDbUrl = preg_replace('/([?&])(sslmode|options|channel_binding)=[^&]*(&|$)/', '$1', $rawDbUrl);
     $rawDbUrl = rtrim($rawDbUrl, '?&');
 }
 

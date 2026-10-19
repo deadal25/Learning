@@ -46,29 +46,10 @@ if (!file_exists($tmpDb) || filesize($tmpDb) === 0 || $installedVersion !== $bun
     }
 }
 
-// Bersihkan variabel lingkungan database eksternal agar tidak menimpa SQLite
-$keysToClear = [
-    'DATABASE_URL',
-    'POSTGRES_URL',
-    'DATABASE_URL_UNPOOLED',
-    'POSTGRES_URL_NON_POOLING',
-    'DB_HOST',
-    'PGHOST',
-    'POSTGRES_HOST',
-    'DB_PORT',
-    'PGPORT',
-    'POSTGRES_PORT',
-    'DB_USERNAME',
-    'PGUSER',
-    'POSTGRES_USER',
-    'DB_PASSWORD',
-    'PGPASSWORD',
-    'POSTGRES_PASSWORD',
-];
-foreach ($keysToClear as $key) {
-    putenv($key);
-    unset($_ENV[$key], $_SERVER[$key]);
-}
+// Default Neon PostgreSQL connection configuration
+$defaultNeonUrl = 'postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+$defaultNeonUnpooled = 'postgresql://neondb_owner:npg_0zyigPE3WdbN@ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require';
+$defaultNeonHost = 'ep-restless-dust-b57sfv5z.c-7.us-east-2.aws.neon.tech';
 
 // Set environment variables penting untuk Vercel Serverless
 $envVars = [
@@ -88,14 +69,29 @@ $envVars = [
     'SESSION_DRIVER' => 'cookie',
     'LOG_CHANNEL' => 'stderr',
     'VERCEL' => '1',
-    'DB_CONNECTION' => 'sqlite',
-    'DB_DATABASE' => $tmpDb,
+    'DB_CONNECTION' => 'pgsql',
+    'DATABASE_URL' => env('DATABASE_URL') ?: $defaultNeonUrl,
+    'POSTGRES_URL' => env('POSTGRES_URL') ?: $defaultNeonUrl,
+    'DATABASE_URL_UNPOOLED' => env('DATABASE_URL_UNPOOLED') ?: $defaultNeonUnpooled,
+    'POSTGRES_URL_NON_POOLING' => env('POSTGRES_URL_NON_POOLING') ?: $defaultNeonUnpooled,
+    'PGHOST' => env('PGHOST') ?: $defaultNeonHost,
+    'PGUSER' => env('PGUSER') ?: 'neondb_owner',
+    'PGDATABASE' => env('PGDATABASE') ?: 'neondb',
+    'PGPASSWORD' => env('PGPASSWORD') ?: 'npg_0zyigPE3WdbN',
+    'DB_HOST' => env('DB_HOST') ?: $defaultNeonHost,
+    'DB_PORT' => '5432',
+    'DB_DATABASE' => env('DB_DATABASE') ?: 'neondb',
+    'DB_USERNAME' => env('DB_USERNAME') ?: 'neondb_owner',
+    'DB_PASSWORD' => env('DB_PASSWORD') ?: 'npg_0zyigPE3WdbN',
+    'DB_DATABASE_SQLITE_FALLBACK' => $tmpDb,
 ];
 
 foreach ($envVars as $key => $val) {
-    putenv("{$key}={$val}");
-    $_ENV[$key] = $val;
-    $_SERVER[$key] = $val;
+    if ($val !== null && $val !== '') {
+        putenv("{$key}={$val}");
+        $_ENV[$key] = $val;
+        $_SERVER[$key] = $val;
+    }
 }
 
 // Paksa request di Vercel selalu dideteksi sebagai HTTPS agar asset/css/gambar tidak terblokir Mixed Content
