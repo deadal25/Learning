@@ -25,10 +25,27 @@ if (!empty($rawDbUrl)) {
     }
 }
 
-$pgHost = env('DB_HOST', env('POSTGRES_HOST', ''));
-if (empty($pgHost) && !empty($rawDbUrl)) {
+$pgHost = env('DB_HOST', env('POSTGRES_HOST', env('PGHOST', '')));
+$pgDatabase = env('DB_DATABASE', env('POSTGRES_DATABASE', env('PGDATABASE', 'laravel')));
+$pgUser = env('DB_USERNAME', env('POSTGRES_USER', env('PGUSER', 'root')));
+$pgPassword = env('DB_PASSWORD', env('POSTGRES_PASSWORD', env('PGPASSWORD', '')));
+$pgPort = env('DB_PORT', env('POSTGRES_PORT', env('PGPORT', '5432')));
+
+if (!empty($rawDbUrl)) {
     $parsedUrl = parse_url($rawDbUrl);
-    $pgHost = $parsedUrl['host'] ?? '';
+    if (!empty($parsedUrl['host'])) $pgHost = $parsedUrl['host'];
+    if (!empty($parsedUrl['path'])) $pgDatabase = ltrim($parsedUrl['path'], '/');
+    if (!empty($parsedUrl['user'])) $pgUser = $parsedUrl['user'];
+    if (!empty($parsedUrl['pass'])) $pgPassword = $parsedUrl['pass'];
+    if (!empty($parsedUrl['port'])) $pgPort = (string)$parsedUrl['port'];
+}
+
+$pgHost = str_replace('-pooler.', '.', $pgHost);
+if (str_contains($pgHost, 'neon.tech') && !str_contains($pgHost, 'options=')) {
+    $endpoint = explode('.', $pgHost)[0];
+    if (!empty($endpoint)) {
+        $pgHost = "{$pgHost};options='endpoint={$endpoint}'";
+    }
 }
 
 $pgSslMode = env('DB_SSLMODE', env('POSTGRES_SSLMODE', 'require'));
@@ -121,12 +138,12 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
-            'url' => $rawDbUrl,
-            'host' => env('DB_HOST', env('POSTGRES_HOST', env('PGHOST', '127.0.0.1'))),
-            'port' => env('DB_PORT', env('POSTGRES_PORT', env('PGPORT', '5432'))),
-            'database' => env('DB_DATABASE', env('POSTGRES_DATABASE', env('PGDATABASE', 'laravel'))),
-            'username' => env('DB_USERNAME', env('POSTGRES_USER', env('PGUSER', 'root'))),
-            'password' => env('DB_PASSWORD', env('POSTGRES_PASSWORD', env('PGPASSWORD', ''))),
+            'url' => null,
+            'host' => $pgHost,
+            'port' => $pgPort,
+            'database' => $pgDatabase,
+            'username' => $pgUser,
+            'password' => $pgPassword,
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
