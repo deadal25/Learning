@@ -45,7 +45,9 @@ class SuperAdminStudentController extends Controller
             ->where('is_active', true)
             ->orderBy('sort_order', 'asc')
             ->orderBy('name', 'asc')
-            ->get();
+            ->get()
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
         $selectedClass = $request->input('class_name');
         $selectedTeacherId = $request->input('teacher_id');
@@ -170,7 +172,9 @@ class SuperAdminStudentController extends Controller
         $classes = EnglishClass::where('subject_id', $currentSubject->id)
             ->where('is_active', true)
             ->orderBy('sort_order', 'asc')
-            ->get();
+            ->get()
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
         $englishTeachers = User::where('role', User::ROLE_ADMIN)
             ->where('subject_id', 1)
@@ -262,10 +266,13 @@ class SuperAdminStudentController extends Controller
         DB::transaction(function () use ($validated, $name, $nrp, $email, $plainPassword, $className, $subjectId, $subject, $teacher, $teacherId) {
             // Ensure class exists
             if ($className) {
-                EnglishClass::firstOrCreate(
+                $cls = EnglishClass::firstOrCreate(
                     ['name' => $className, 'subject_id' => $subjectId],
                     ['is_active' => true, 'sort_order' => 99]
                 );
+                if ($cls->wasRecentlyCreated) {
+                    EnglishClass::reorderAlphabetically($subjectId);
+                }
             }
 
             $student = User::create([
@@ -361,7 +368,9 @@ class SuperAdminStudentController extends Controller
         $classes = EnglishClass::where('is_active', true)
             ->where('subject_id', $student->subject_id ?? 1)
             ->orderBy('sort_order', 'asc')
-            ->get();
+            ->get()
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
         $englishTeachers = User::where('role', User::ROLE_ADMIN)
             ->where('subject_id', 1)
@@ -406,10 +415,13 @@ class SuperAdminStudentController extends Controller
 
         DB::transaction(function () use ($student, $validated, $subjectId, $subject, $className, $teacher, $teacherId) {
             if ($className) {
-                EnglishClass::firstOrCreate(
+                $cls = EnglishClass::firstOrCreate(
                     ['name' => $className, 'subject_id' => $subjectId],
                     ['is_active' => true, 'sort_order' => 99]
                 );
+                if ($cls->wasRecentlyCreated) {
+                    EnglishClass::reorderAlphabetically($subjectId);
+                }
             }
 
             $updateData = [

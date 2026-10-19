@@ -429,6 +429,7 @@ class StudentExcelService
                 $createdClasses[$clsName] = true;
             }
             EnglishClass::insert($classInserts);
+            EnglishClass::reorderAlphabetically($subjectId);
         }
 
         // 2. Pre-load existing students by NRP and Email (2 queries)

@@ -40,7 +40,9 @@ class EnglishGradeExportService
             $classes = EnglishClass::where('is_active', true)
                 ->where('subject_id', 1)
                 ->orderBy('sort_order')
-                ->get();
+                ->get()
+                ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values();
         }
 
         $classesPayload = [];

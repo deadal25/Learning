@@ -35,7 +35,7 @@ class EnglishClassProfileController extends Controller
             $classesQuery->where('subject_id', $selectedSubjectId);
         }
 
-        $classes = $classesQuery->get();
+        $classes = $classesQuery->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         return view('admin.classes.index', compact('user', 'classes', 'subjects', 'selectedSubjectId', 'isTeacher'));
     }
@@ -87,6 +87,8 @@ class EnglishClassProfileController extends Controller
             \App\Models\EnglishGrade::where('class_name', $oldName)->update(['class_name' => $newName]);
         }
 
+        EnglishClass::reorderAlphabetically($class->subject_id);
+
         $term = $class->subject_id == 2 ? 'Grup' : 'Kelas';
         return back()->with('success', "{$term} '{$newName}' berhasil diperbarui.");
     }
@@ -125,6 +127,8 @@ class EnglishClassProfileController extends Controller
             'is_active' => true,
         ]);
 
+        EnglishClass::reorderAlphabetically($subjectId);
+
         $term = $subjectId == 2 ? 'Grup' : 'Kelas';
         return back()->with('success', "{$term} baru '{$validated['name']}' berhasil ditambahkan.");
     }
@@ -142,8 +146,11 @@ class EnglishClassProfileController extends Controller
         }
 
         $term = $class->subject_id == 2 ? 'Grup' : 'Kelas';
+        $subjectId = $class->subject_id;
         $name = $class->name;
         $class->delete();
+
+        EnglishClass::reorderAlphabetically($subjectId);
 
         return back()->with('success', "{$term} '{$name}' telah berhasil dihapus.");
     }

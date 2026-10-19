@@ -47,4 +47,41 @@ class EnglishClass extends Model
     {
         return $this->hasMany(Material::class, 'class_name', 'name');
     }
+
+    /**
+     * Scope to order by natural sort order.
+     */
+    public function scopeAlphabetical($query)
+    {
+        return $query->orderBy('sort_order', 'asc')->orderBy('name', 'asc');
+    }
+
+    /**
+     * Reorder all classes in the database alphabetically (natural sort)
+     * so that their sort_order numbers permanently match their alphabetical order.
+     */
+    public static function reorderAlphabetically(?int $subjectId = null): void
+    {
+        $query = static::query();
+        if ($subjectId) {
+            $query->where('subject_id', $subjectId);
+        }
+        $classes = $query->get();
+
+        $bySubject = $classes->groupBy('subject_id');
+        foreach ($bySubject as $subjId => $group) {
+            $sorted = $group->sortBy(function ($item) {
+                return $item->name;
+            }, SORT_NATURAL | SORT_FLAG_CASE)->values();
+
+            foreach ($sorted as $index => $class) {
+                $newSort = $index + 1;
+                if ($class->sort_order !== $newSort) {
+                    \Illuminate\Support\Facades\DB::table('english_classes')
+                        ->where('id', $class->id)
+                        ->update(['sort_order' => $newSort]);
+                }
+            }
+        }
+    }
 }

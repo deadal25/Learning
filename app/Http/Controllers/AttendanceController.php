@@ -111,7 +111,7 @@ class AttendanceController extends Controller
         if ($isTeacher && $currentUser->subject_id) {
             $classesQuery->where('subject_id', $currentUser->subject_id);
         }
-        $classes = $classesQuery->get();
+        $classes = $classesQuery->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         // Filter students query
         $studentsQuery = User::where('role', User::ROLE_STUDENT)->orderBy('name', 'asc');

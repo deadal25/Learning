@@ -31,7 +31,9 @@ class EnglishGradeController extends Controller
         $classes = EnglishClass::where('is_active', true)
             ->where('subject_id', 1)
             ->orderBy('sort_order')
-            ->get();
+            ->get()
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
         // Default to first English class if not selected, or if selected class is not an English class
         $validClassNames = $classes->pluck('name')->toArray();

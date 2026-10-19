@@ -31,7 +31,7 @@ class StudentManagementController extends Controller
         } elseif (!empty($selectedSubjectId) && $selectedSubjectId !== 'all') {
             $classesQuery->where('subject_id', $selectedSubjectId);
         }
-        $classes = $classesQuery->get();
+        $classes = $classesQuery->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         $query = User::where('role', User::ROLE_STUDENT)
             ->with(['creator', 'progresses.subject', 'progresses.currentLevel', 'enrollments.subject']);
@@ -95,7 +95,7 @@ class StudentManagementController extends Controller
         } elseif ($subjId = $request->input('subject_id')) {
             $classesQuery->where('subject_id', $subjId);
         }
-        $classes = $classesQuery->get();
+        $classes = $classesQuery->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
         $subjects = Subject::where('is_active', true)->get();
 
         return view('admin.students.create', compact('classes', 'isTeacher', 'user', 'subjects'));
@@ -263,9 +263,9 @@ class StudentManagementController extends Controller
                 $assignedIds = $currentUser->getAssignedStudentIds();
                 abort_unless(in_array($student->id, $assignedIds), 403, 'Anda tidak berhak mengedit data murid guru lain.');
             }
-            $classes = EnglishClass::where('is_active', true)->where('subject_id', $currentUser->subject_id)->orderBy('sort_order')->get();
+            $classes = EnglishClass::where('is_active', true)->where('subject_id', $currentUser->subject_id)->orderBy('sort_order')->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
         } else {
-            $classes = EnglishClass::where('is_active', true)->where('subject_id', $student->subject_id ?: 1)->orderBy('sort_order')->get();
+            $classes = EnglishClass::where('is_active', true)->where('subject_id', $student->subject_id ?: 1)->orderBy('sort_order')->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
         }
 
         return view('admin.students.edit', compact('student', 'classes', 'isTeacher'));

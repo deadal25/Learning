@@ -28,7 +28,7 @@ class MaterialController extends Controller
         } elseif ($subjectId = $request->input('subject_id')) {
             $classesQuery->where('subject_id', $subjectId);
         }
-        $classes = $classesQuery->get();
+        $classes = $classesQuery->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         $subjects = $isTeacher && $user->subject_id
             ? Subject::where('id', $user->subject_id)->with('levels')->get()
@@ -96,7 +96,7 @@ class MaterialController extends Controller
         if ($isTeacher && $user->subject_id) {
             $classesQuery->where('subject_id', $user->subject_id);
         }
-        $classes = $classesQuery->get();
+        $classes = $classesQuery->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         $subjects = $isTeacher && $user->subject_id
             ? Subject::where('id', $user->subject_id)->with('levels')->get()
@@ -403,7 +403,7 @@ class MaterialController extends Controller
         } elseif ($material->level && $material->level->subject_id) {
             $classesQuery->where('subject_id', $material->level->subject_id);
         }
-        $classes = $classesQuery->get();
+        $classes = $classesQuery->get()->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
 
         return view('admin.materials.edit', compact('material', 'subjects', 'classes', 'isTeacher', 'user'));
     }

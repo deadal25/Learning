@@ -36,7 +36,9 @@ class SuperAdminAttendanceController extends Controller
         $classes = EnglishClass::where('subject_id', $currentSubject->id)
             ->where('is_active', true)
             ->orderBy('sort_order', 'asc')
-            ->get();
+            ->get()
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
         // 1. Teachers for this subject
         $teachers = User::where('role', User::ROLE_ADMIN)
