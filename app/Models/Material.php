@@ -80,7 +80,7 @@ class Material extends Model
     public function getFileUrlAttribute(): ?string
     {
         if ($this->file_path) {
-            return asset('storage/' . $this->file_path);
+            return url('/materials/' . $this->id . '/public-stream/' . urlencode($this->file_name ?: ('materi.' . ($this->file_type ?: 'pdf'))));
         }
         return null;
     }
@@ -99,7 +99,8 @@ class Material extends Model
             $host = 'https://learning-musashi.vercel.app';
         }
 
-        return rtrim($host, '/') . '/storage/' . ltrim($this->file_path, '/');
+        $filename = $this->file_name ?: ('materi_' . $this->id . '.' . ($this->file_type ?: 'pptx'));
+        return rtrim($host, '/') . '/materials/' . $this->id . '/public-stream/' . urlencode($filename);
     }
 
     public function getOfficeEmbedUrlAttribute(): ?string
@@ -171,11 +172,7 @@ class Material extends Model
 
     public function hasFile(): bool
     {
-        return !empty($this->file_path) && (
-            !empty($this->file_content) ||
-            Storage::disk('public')->exists($this->file_path) ||
-            file_exists(base_path('storage/app/public/' . $this->file_path))
-        );
+        return !empty($this->file_path);
     }
 
     public function isCanva(): bool

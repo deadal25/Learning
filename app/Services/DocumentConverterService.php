@@ -9,35 +9,69 @@ use Illuminate\Support\Facades\Storage;
 class DocumentConverterService
 {
     /**
-     * Resolve absolute file path from either /tmp storage, project bundled storage, or public directory.
+     * Resolve absolute file path from either /tmp storage, project bundled storage, public directory,
+     * or dynamically restored from the database (PostgreSQL / Neon file_content).
      */
-    public static function resolveFilePath(?string $relativePath): ?string
+    public static function resolveFilePath(?string $relativePath, ?Material $material = null): ?string
     {
         if (empty($relativePath)) {
             return null;
         }
 
-        // 1. Temporary storage (/tmp/storage/app/public)
+        // 1. Temporary / active storage disk (/tmp/storage/app/public or storage/app/public)
         try {
             $tmpPath = Storage::disk('public')->path($relativePath);
-            if (file_exists($tmpPath) && is_file($tmpPath)) {
+            if (file_exists($tmpPath) && is_file($tmpPath) && filesize($tmpPath) > 0) {
                 return $tmpPath;
             }
         } catch (\Throwable $e) {}
 
         // 2. Bundled repository storage (storage/app/public)
         $bundledPath = base_path('storage/app/public/' . $relativePath);
-        if (file_exists($bundledPath) && is_file($bundledPath)) {
+        if (file_exists($bundledPath) && is_file($bundledPath) && filesize($bundledPath) > 0) {
             return $bundledPath;
         }
 
         // 3. Public directory storage (public/storage)
         $pubPath = public_path('storage/' . $relativePath);
-        if (file_exists($pubPath) && is_file($pubPath)) {
+        if (file_exists($pubPath) && is_file($pubPath) && filesize($pubPath) > 0) {
             return $pubPath;
         }
 
+        // 4. Serverless Dynamic Restore: Restore file from PostgreSQL database (file_content column)
+        try {
+            $base64 = null;
+            if ($material && !empty($material->file_content)) {
+                $base64 = $material->file_content;
+            } elseif ($material && $material->id) {
+                $base64 = Material::withFileContent()->where('id', $material->id)->value('file_content');
+            } else {
+                $base64 = Material::withFileContent()->where('file_path', $relativePath)->value('file_content');
+            }
+
+            if (!empty($base64)) {
+                $binary = base64_decode($base64);
+                if ($binary !== false && strlen($binary) > 0) {
+                    Storage::disk('public')->put($relativePath, $binary);
+                    $restoredPath = Storage::disk('public')->path($relativePath);
+                    if (file_exists($restoredPath) && is_file($restoredPath) && filesize($restoredPath) > 0) {
+                        return $restoredPath;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Gagal me-restore file materi dari database untuk {$relativePath}: " . $e->getMessage());
+        }
+
         return null;
+    }
+
+    /**
+     * Resolve material file path with direct model reference.
+     */
+    public static function resolveMaterialFile(Material $material): ?string
+    {
+        return self::resolveFilePath($material->file_path, $material);
     }
 
     /**
@@ -103,7 +137,7 @@ class DocumentConverterService
             ];
         }
 
-        $resolvedInput = self::resolveFilePath($material->file_path);
+        $resolvedInput = self::resolveFilePath($material->file_path, $material);
         if (!$material->file_path || !$resolvedInput) {
             return [
                 'has_slides' => false,
@@ -228,7 +262,7 @@ class DocumentConverterService
         }
 
         if ($material->isPdf()) {
-            return self::resolveFilePath($material->file_path);
+            return self::resolveMaterialFile($material);
         }
 
         if (!$material->isPpt()) {
@@ -236,14 +270,14 @@ class DocumentConverterService
         }
 
         $convertedRel = "materials/converted_{$material->id}.pdf";
-        $resolved = self::resolveFilePath($convertedRel);
+        $resolved = self::resolveFilePath($convertedRel, $material);
         if ($resolved) {
             return $resolved;
         }
 
         // Try ensuring converted if not yet created
         self::ensureConverted($material);
-        return self::resolveFilePath($convertedRel);
+        return self::resolveFilePath($convertedRel, $material);
     }
 }
 

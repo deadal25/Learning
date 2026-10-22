@@ -306,6 +306,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     inputPath.value = result.file_path;
 
+                    let inputId = form.querySelector('input[name="preuploaded_upload_id"]');
+                    if (!inputId) {
+                        inputId = document.createElement('input');
+                        inputId.type = 'hidden';
+                        inputId.name = 'preuploaded_upload_id';
+                        form.appendChild(inputId);
+                    }
+                    inputId.value = result.upload_id || uploadId;
+
                     let inputName = form.querySelector('input[name="preuploaded_file_name"]');
                     if (!inputName) {
                         inputName = document.createElement('input');

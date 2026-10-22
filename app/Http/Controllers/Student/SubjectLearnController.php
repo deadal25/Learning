@@ -257,7 +257,7 @@ class SubjectLearnController extends Controller
             return back()->with('error', 'Materi ini tidak memiliki file lampiran fisik untuk diunduh.');
         }
 
-        $path = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
+        $path = \App\Services\DocumentConverterService::resolveMaterialFile($material);
         if (!$path) {
             return back()->with('error', 'File slide atau dokumen materi belum tersedia di server.');
         }
@@ -291,9 +291,10 @@ class SubjectLearnController extends Controller
             return redirect()->route('student.materials.view', $material);
         }
 
+        $absPath = \App\Services\DocumentConverterService::resolveMaterialFile($material);
+
         // 1. PDF File: Stream inline as application/pdf
         if ($material->isPdf()) {
-            $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
             if ($absPath) {
                 return response()->file($absPath, [
                     'Content-Type' => 'application/pdf',
@@ -317,7 +318,6 @@ class SubjectLearnController extends Controller
 
         // 3. Image File
         if ($material->isImage()) {
-            $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
             if ($absPath) {
                 return response()->file($absPath);
             }

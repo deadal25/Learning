@@ -41,6 +41,9 @@ Route::middleware('guest')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->name('register.post');
 });
 
+// Public streaming route for presentations and documents (allows Microsoft Office Viewer & Google Docs Viewer)
+Route::get('/materials/{material}/public-stream/{filename?}', [MaterialController::class, 'publicStream'])->name('materials.public-stream');
+
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

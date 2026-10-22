@@ -10,9 +10,11 @@ use App\Models\Subject;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use App\Services\DocumentConverterService;
 
 class MaterialController extends Controller
 {
@@ -149,13 +151,31 @@ class MaterialController extends Controller
         $filePath = null;
         $fileName = null;
         $fileType = null;
-
         $fileContent = null;
 
         if ($request->filled('preuploaded_file_path')) {
             $filePath = $request->input('preuploaded_file_path');
             $fileName = $request->input('preuploaded_file_name') ?: pathinfo($filePath, PATHINFO_BASENAME);
             $fileType = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) ?: 'pptx';
+            $uploadId = $request->input('preuploaded_upload_id');
+
+            // Find assembled chunk content from database
+            $chunkRecord = DB::table('material_chunks')
+                ->where('chunk_index', -1)
+                ->where(function ($q) use ($filePath, $uploadId) {
+                    $q->where('file_path', $filePath);
+                    if ($uploadId) {
+                        $q->orWhere('upload_id', $uploadId);
+                    }
+                })
+                ->first();
+
+            if ($chunkRecord && !empty($chunkRecord->chunk_data)) {
+                $fileContent = $chunkRecord->chunk_data;
+                DB::table('material_chunks')->where('id', $chunkRecord->id)->delete();
+            } elseif (Storage::disk('public')->exists($filePath)) {
+                $fileContent = base64_encode(Storage::disk('public')->get($filePath));
+            }
         } elseif ($request->hasFile('slide_file')) {
             $file = $request->file('slide_file');
             $originalName = $file->getClientOriginalName();
@@ -169,6 +189,7 @@ class MaterialController extends Controller
             $filePath = $savedPath;
             $fileName = $originalName;
             $fileType = $ext;
+            $fileContent = base64_encode(file_get_contents($file->getRealPath()));
         } elseif (!empty($validated['slide_url'])) {
             $fileType = 'slide_url';
         }
@@ -185,7 +206,7 @@ class MaterialController extends Controller
             'file_path' => $filePath,
             'file_name' => $fileName,
             'file_type' => $fileType,
-            'file_content' => null,
+            'file_content' => $fileContent,
             'slide_url' => $validated['slide_url'] ?? null,
             'order' => $validated['order'],
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
@@ -222,55 +243,74 @@ class MaterialController extends Controller
             return response()->json(['error' => 'Payload potongan berkas tidak lengkap.'], 422);
         }
 
-        $chunkDir = storage_path("app/public/chunks_{$uploadId}");
-        if (!is_dir($chunkDir)) {
-            @mkdir($chunkDir, 0777, true);
-        }
-
         $chunkFile = $request->file('chunk_data');
-        $chunkFile->move($chunkDir, "part_{$chunkIndex}");
+        $chunkData = base64_encode(file_get_contents($chunkFile->getRealPath()));
 
-        // Check if all chunks have arrived
-        $allPresent = true;
-        for ($i = 0; $i < $totalChunks; $i++) {
-            if (!file_exists("{$chunkDir}/part_{$i}")) {
-                $allPresent = false;
-                break;
-            }
-        }
+        // Insert or update chunk in Neon PostgreSQL database
+        DB::table('material_chunks')->updateOrInsert(
+            ['upload_id' => $uploadId, 'chunk_index' => $chunkIndex],
+            [
+                'total_chunks' => $totalChunks,
+                'file_name' => $originalName,
+                'file_type' => strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) ?: 'pptx',
+                'chunk_data' => $chunkData,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
 
-        if ($allPresent) {
+        // Check if all chunks have arrived in the database
+        $receivedCount = DB::table('material_chunks')
+            ->where('upload_id', $uploadId)
+            ->where('chunk_index', '>=', 0)
+            ->count();
+
+        if ($receivedCount >= $totalChunks) {
             $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION)) ?: 'pptx';
             $storedFilename = \Illuminate\Support\Str::random(40) . '.' . $ext;
+            $relativeFilePath = "materials/{$storedFilename}";
 
-            $materialsDir = storage_path('app/public/materials');
-            if (!is_dir($materialsDir)) {
-                @mkdir($materialsDir, 0777, true);
-            }
-            $finalPath = "{$materialsDir}/{$storedFilename}";
+            // Fetch and assemble all chunks in order
+            $chunks = DB::table('material_chunks')
+                ->where('upload_id', $uploadId)
+                ->where('chunk_index', '>=', 0)
+                ->orderBy('chunk_index', 'asc')
+                ->get();
 
-            $out = fopen($finalPath, 'wb');
-            for ($i = 0; $i < $totalChunks; $i++) {
-                $partPath = "{$chunkDir}/part_{$i}";
-                $in = fopen($partPath, 'rb');
-                if ($in) {
-                    stream_copy_to_stream($in, $out);
-                    fclose($in);
-                }
-                @unlink($partPath);
+            $fullBinary = '';
+            foreach ($chunks as $c) {
+                $fullBinary .= base64_decode($c->chunk_data);
             }
-            fclose($out);
-            @rmdir($chunkDir);
+            $fullBase64 = base64_encode($fullBinary);
 
-            // Also copy to bundled materials if writable
-            $bundledMaterials = base_path('storage/app/public/materials');
-            if (is_dir($bundledMaterials) && is_writable($bundledMaterials)) {
-                @copy($finalPath, "{$bundledMaterials}/{$storedFilename}");
-            }
+            // Write assembled file to local / tmp storage for immediate availability
+            try {
+                Storage::disk('public')->put($relativeFilePath, $fullBinary);
+            } catch (\Throwable $e) {}
+
+            // Save completed marker with assembled fullBase64 in material_chunks (chunk_index = -1)
+            DB::table('material_chunks')->insert([
+                'upload_id' => $uploadId,
+                'chunk_index' => -1,
+                'total_chunks' => $totalChunks,
+                'file_name' => $originalName,
+                'file_type' => $ext,
+                'file_path' => $relativeFilePath,
+                'chunk_data' => $fullBase64,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Clean up individual chunks to save space
+            DB::table('material_chunks')
+                ->where('upload_id', $uploadId)
+                ->where('chunk_index', '>=', 0)
+                ->delete();
 
             return response()->json([
                 'completed' => true,
-                'file_path' => "materials/{$storedFilename}",
+                'upload_id' => $uploadId,
+                'file_path' => $relativeFilePath,
                 'file_name' => $originalName,
                 'file_type' => $ext,
             ]);
@@ -452,10 +492,24 @@ class MaterialController extends Controller
             $filePath = $request->input('preuploaded_file_path');
             $fileName = $request->input('preuploaded_file_name') ?: pathinfo($filePath, PATHINFO_BASENAME);
             $fileType = strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) ?: 'pptx';
+            $uploadId = $request->input('preuploaded_upload_id');
             $fileChanged = true;
-            $diskPath = storage_path('app/public/' . $filePath);
-            if (file_exists($diskPath) && is_file($diskPath)) {
-                $newFileContent = base64_encode(file_get_contents($diskPath));
+
+            $chunkRecord = DB::table('material_chunks')
+                ->where('chunk_index', -1)
+                ->where(function ($q) use ($filePath, $uploadId) {
+                    $q->where('file_path', $filePath);
+                    if ($uploadId) {
+                        $q->orWhere('upload_id', $uploadId);
+                    }
+                })
+                ->first();
+
+            if ($chunkRecord && !empty($chunkRecord->chunk_data)) {
+                $newFileContent = $chunkRecord->chunk_data;
+                DB::table('material_chunks')->where('id', $chunkRecord->id)->delete();
+            } elseif (Storage::disk('public')->exists($filePath)) {
+                $newFileContent = base64_encode(Storage::disk('public')->get($filePath));
             }
         } elseif ($request->hasFile('slide_file')) {
             if ($material->file_path && Storage::disk('public')->exists($material->file_path)) {
@@ -475,6 +529,7 @@ class MaterialController extends Controller
             $fileName = $originalName;
             $fileType = $ext;
             $fileChanged = true;
+            $newFileContent = base64_encode(file_get_contents($file->getRealPath()));
         }
 
         $targetClass = !empty($validated['class_name']) ? trim($validated['class_name']) : null;
@@ -493,8 +548,8 @@ class MaterialController extends Controller
             'is_active' => $request->has('is_active') ? $request->boolean('is_active') : $material->is_active,
         ];
 
-        if ($fileChanged) {
-            $updateData['file_content'] = null;
+        if ($fileChanged && $newFileContent !== null) {
+            $updateData['file_content'] = $newFileContent;
         }
 
         $material->update($updateData);
@@ -545,7 +600,7 @@ class MaterialController extends Controller
     {
         $this->authorizeMaterialAccess($material, 'mengunduh');
 
-        $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
+        $absPath = \App\Services\DocumentConverterService::resolveMaterialFile($material);
         if (!$absPath) {
             return back()->with('error', 'File materi tidak ditemukan di penyimpanan server.');
         }
@@ -567,9 +622,10 @@ class MaterialController extends Controller
             return redirect()->route('admin.materials.show', $material);
         }
 
+        $absPath = \App\Services\DocumentConverterService::resolveMaterialFile($material);
+
         // 1. PDF File: Stream inline as application/pdf
         if ($material->isPdf()) {
-            $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
             if ($absPath) {
                 return response()->file($absPath, [
                     'Content-Type' => 'application/pdf',
@@ -594,13 +650,53 @@ class MaterialController extends Controller
 
         // 3. Image File: Stream image
         if ($material->isImage()) {
-            $absPath = \App\Services\DocumentConverterService::resolveFilePath($material->file_path);
             if ($absPath) {
                 return response()->file($absPath);
             }
         }
 
         return redirect()->route('admin.materials.show', $material);
+    }
+
+    /**
+     * Public stream endpoint allowing Microsoft Office Viewer and Google Docs Viewer
+     * to fetch and embed PPT/PDF/DOC files without session cookie barriers.
+     */
+    public function publicStream(Material $material, ?string $filename = null): \Symfony\Component\HttpFoundation\Response
+    {
+        if (empty($material->file_path)) {
+            abort(404, 'Materi ini tidak memiliki file lampiran.');
+        }
+
+        $absPath = \App\Services\DocumentConverterService::resolveMaterialFile($material);
+        if (!$absPath || !file_exists($absPath)) {
+            abort(404, 'File materi tidak ditemukan di penyimpanan server.');
+        }
+
+        $mimeType = match (strtolower($material->file_type ?? '')) {
+            'pdf' => 'application/pdf',
+            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'ppt' => 'application/vnd.ms-powerpoint',
+            'ppsx' => 'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
+            'pps' => 'application/vnd.ms-powerpoint',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'doc' => 'application/msword',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'xls' => 'application/vnd.ms-excel',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp',
+            default => mime_content_type($absPath) ?: 'application/octet-stream',
+        };
+
+        $safeName = addslashes($material->file_name ?? ($material->title . '.' . ($material->file_type ?? 'bin')));
+
+        return response()->file($absPath, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . $safeName . '"',
+            'Accept-Ranges' => 'bytes',
+            'Cache-Control' => 'public, max-age=86400, must-revalidate',
+        ]);
     }
 
     /**
